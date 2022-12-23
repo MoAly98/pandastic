@@ -1,59 +1,74 @@
+'''
+This module indetifies the task-IDs of jobs that are either exhausted, finished or failed and
+retries them using pbook, with the possibility of changing options
+
+'''
+
+# Required Imports
+# System
+import sys, os, re, json
 import argparse
+# Panda
 from pandaclient import Client
-import sys, os, re
 from pandaclient import PBookCore
 from pandaclient import queryPandaMonUtils
+# Rucio
 from rucio import client as rucio_client
+
+# Create an instance of the PBook API
 pbook = PBookCore.PBookCore()
+
+
+_h_regex  = 'A regex/pattern to be used to find the jobs to retry. This can be for example a suffix. This will be used with .*pattern.*'
+_h_submit = 'Should the code submit the retry jobs? Default is to run dry'
+_h_days   = 'How many days in the past should we look for the jobs?'
+_h_user   = 'By default the tasks for the current user are the ones that will be queried. Use this option to query other users.'
+_h_newargs= 'New arguments to retry the jobs with must be passed as a dictionary inside a single-quote string'
 
 def argparser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--retry',             action='store_true')
-    parser.add_argument('--replicate',         action='store_true')
-    
-    parser.add_argument('-s', '--suffix',      type=str, required=True)
-    parser.add_argument('--submit',            action='store_true')
-    parser.add_argument('-d', '--days',        type=int, default=30)
-    parser.add_argument('-u', '--grid-user',   type=str, default='')
-    parser.add_argument('-r', '--rse-exp',      type=str, default='', help="tier=1&type=SCRATCHDISK&cloud=US")
-    parser.add_argument('-l', '--life',        type=int,   default = 3600, help= 'How long to keep it for, in seconds')
-    
+    parser.add_argument('-r', '--regex',       type=str, required=True, help=_h_regex)
+    parser.add_argument('-d', '--days',        type=int, default=30,    help=_h_days)
+    parser.add_argument('-u', '--grid-user',   type=str, default='',    help=_h_user)    
+    parser.add_argument('--submit',            action='store_true',     help=_h_submit)
+    parser.add_argument('--newargs',           type=str,                help=_h_newargs)
+
     return parser.parse_args()
 
 def run():
+
     args = argparser()
-    retry = args.retry
-    duplicate = args.replicate
-    assert (retry or duplicate), "ERROR:: You should specify the action to take"
     
     # /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/PandaClient/1.5.9/lib/python3.6/site-packages/pandaclient/PBookCore.py
     
     user = pbook.username if args.grid_user == '' else args.grid_user
     days = args.days
-    suffix = args.suffix
+    suffix = args.regex
     _, url, data = queryPandaMonUtils.query_tasks( username=user,
                                                    days=days, 
                                                    status='ready|pending|exhausted|finished|failed')
 
     print(f"INFO:: PanDAs query URL: {url}")                                   
-    if retry:  do_retry(data, suffix, args.submit)
-    if duplicate:   add_rule(data, suffix, args.submit, args.rse_exp)
+    do_retry(data, suffix, args.submit, args.newargs)
+    #if duplicate:   add_rule(data, suffix, args.submit, args.rse_exp)
     
-def do_retry(data, suffix, submit):
+def do_retry(data, suffix, submit, newargs):
     
     to_retry = []
+    newargs  = json.loads(newargs)
+    print(newargs)
     for datum in data:
         taskid = datum.get("jeditaskid")
         taskname = datum.get("taskname")
         status = datum.get("status")
         
-        if re.match(f"^.*_{suffix}/$", taskname) is None:   continue 
+        if re.match(f"^.*{suffix}/$", taskname) is None:   continue 
         to_retry.append(taskid)
         print(f"INFO:: TO RETRY: {taskname}, Status = {status}")
     
     if submit:
-        for taskid in to_retry:
-            pbook.retry(taskid)
+        for taskid in to_retryal:
+            pbook.retry(taskid, newOpts=newargs)
 
 def add_rule(data, suffix, submit, rse_expression, lifetime):
     assert rse_expression != '', 'ERROR:: Must provide valid RSE expression to add replication rule'
