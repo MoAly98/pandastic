@@ -13,11 +13,13 @@ def argparser():
     parser = argparse.ArgumentParser()    
     parser.add_argument('-s', '--suffix',      type=str,   required=True)
     parser.add_argument('-r', '--rse-exp',     type=str,   required=True, help="tier=1&type=SCRATCHDISK&cloud=US")
+    parser.add_argument('--type',              type=str,   required=True, choices=['OUT','IN'])
     parser.add_argument('-d', '--days',        type=int,   default=30)
     parser.add_argument('-u', '--grid-user',   type=str,   default='')
     parser.add_argument('-l', '--life',        type=int,   default = 3600, help= 'How long to keep it for, in seconds')
     parser.add_argument('--did',               type=str,)
     parser.add_argument('--submit',            action='store_true')
+   
    
     return parser.parse_args()
 
@@ -35,39 +37,53 @@ def run():
                                                 )
 
     print(f"INFO:: PanDAs query URL: {url}")                                   
-    add_rule(data, suffix, args.submit, args.rse_exp, args.life, did)
+    add_rule(data, suffix, args.submit, args.rse_exp, args.life, did, args.type)
 
-def add_rule(data, suffix, submit, rse_expression, lifetime, did):
-
+def add_rule(data, suffix, submit, rse_expression, lifetime, did, cont_type):
+    
     rcl = rucio_client.ruleclient.RuleClient()
     didcl = rucio_client.didclient.DIDClient()
     rsecl = rucio_client.rseclient.RSEClient()
+
+    if cont_type == 'OUT':
+        look_for_type = 'output'
+    else:
+        look_for_type = 'input'
     to_repl = []
     totalsize = 0
     for datum in data:
         taskname = datum.get("taskname")
         if re.match(f"^.*_{suffix}/$", taskname) is None:   continue
-
-        outDS = set()
+        DSes = set()
         for ds in datum.get("datasets"):
-            if(ds.get("type")!='output'):    continue 
+            if(ds.get("type")!=look_for_type):    continue 
             cont = ds.get("containername")
             if did is not None:
                 if re.match(did.replace('*','.*'), cont) is None: continue
-            outDS.add(cont)
-        if len(outDS) == 0: continue
-        for cont in outDS:
+            existing_rules = didcl.list_did_rules(scope, cont)
+            rule_exits = False
+            for er in existing_rules:
+                if re.match(rse_expression, er['rse_expression']) is not None:
+                    rule_exits= True
+                    break
+            if not rule_exits:
+                DSes.add(cont)
+            else:
+                continue
+        
+        if len(DSes) == 0: continue
+        for cont in DSes:
             # Log DS size
             scope = ".".join(cont.split(".")[:2])
             files = list(didcl.list_files(scope,cont.replace('/','')))
             totalsize += sum([file['bytes']/1e6 for file in files])
     
-        to_repl.extend(outDS)
+        to_repl.extend(DSes)
         
         status = datum.get("status")
-        print(f"INFO:: TO REPLICATE: {outDS}, Status = {status}")
+        print(f"INFO:: TO REPLICATE: {DSes}, Status = {status}")
 
-    print(f"INFO:: Will replicate {len(to_repl)} output DSs")
+    print(f"INFO:: Will replicate {len(to_repl)} datasets")
     if totalsize > 1e3 and totalsize < 1e5: 
         totalsize/=1e3
         print(f"INFO:: Total Size = {totalsize:2f} GB")
@@ -85,13 +101,14 @@ def add_rule(data, suffix, submit, rse_expression, lifetime, did):
         rse_cloud = rse_attrs['cloud']
         rse_site  = rse_attrs['site']
         rse_type  = rse_attrs['type']
-        rse_bool  = f'tier={rse_tier}&type={rse_type}&cloud={rse_cloud}&site={rse_site}'
+        rse_bool  = f'tier={r
+        se_tier}&type={rse_type}&cloud={rse_cloud}&site={rse_site}'
         
         # Get replicating
         rule_ids = []
-        for outds in to_repl:
-            scope = ".".join(outds.split(".")[:2])
-            ds = outds.replace('/','')
+        for ds in to_repl:
+            scope = ".".join(ds.split(".")[:2])
+            ds = ds.replace('/','')
             # see: http://rucio.cern.ch/documentation/client_api/ruleclient
             try:
                 rule = rcl.add_replication_rule([{'scope':scope, 'name': ds}], 1, rse_expression, lifetime = lifetime)
