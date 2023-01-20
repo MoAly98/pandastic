@@ -18,7 +18,7 @@ DELETE = False
 
 rulecl = rucio_client.ruleclient.RuleClient()
 didcl = rucio_client.didclient.DIDClient()
-
+replicacl =  rucio_client.replicaclient.ReplicaClient()
 # Get DIDs:
 dids = didcl.list_dids(scope, {'name':did_regex})
 dids_on_regexed_rse = []
@@ -28,5 +28,8 @@ for did in dids:
         rse_exp = rule['rse_expression']
         rule_id = rule['id']
         if re.match(re_rse_regex, rse_exp) is None: continue
-        if delete:
-            rulecl.delete_replication_rule(rule_id)
+        print(f"INFO:: Deleting the replica of {did} with rule ID: {rule_id} which lives on RSE: {rse_exp}")
+        if DELETE:
+            print("Deleting...")
+            rulecl.delete_replication_rule(rule_id, purge_replicas=True)
+            #replicacl.delete_replicas(rse_exp, [{'scope': scope,'name':did}] )
