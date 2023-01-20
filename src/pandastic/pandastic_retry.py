@@ -67,7 +67,7 @@ def do_retry(data, suffix, submit, newargs):
         print(f"INFO:: TO RETRY: {taskname}, Status = {status}")
     
     if submit:
-        for taskid in to_retryal:
+        for taskid in to_retry:
             pbook.retry(taskid, newOpts=newargs)
 
 def add_rule(data, suffix, submit, rse_expression, lifetime):
