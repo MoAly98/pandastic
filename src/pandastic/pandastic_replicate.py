@@ -29,7 +29,7 @@ def run():
     # /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/PandaClient/1.5.9/lib/python3.6/site-packages/pandaclient/PBookCore.py    
     user   = pbook.username if args.grid_user == '' else args.grid_user
     days   = args.days
-    suffix = args.suffix
+    suffix  = args.suffix
     did    = args.did
     _, url, data = queryPandaMonUtils.query_tasks( username=user,
                                                    days=days, 
@@ -52,15 +52,18 @@ def add_rule(data, suffix, submit, rse_expression, lifetime, did, cont_type):
     to_repl = []
     totalsize = 0
     for datum in data:
+        
         taskname = datum.get("taskname")
-        if re.match(f"^.*_{suffix}/$", taskname) is None:   continue
+        if re.match(f"^{suffix}$", taskname) is None:   continue
         DSes = set()
         for ds in datum.get("datasets"):
             if(ds.get("type")!=look_for_type):    continue 
             cont = ds.get("containername")
+            scope = ".".join(cont.split(".")[:2])
+
             if did is not None:
                 if re.match(did.replace('*','.*'), cont) is None: continue
-            existing_rules = didcl.list_did_rules(scope, cont)
+            existing_rules = didcl.list_did_rules(scope, cont.replace('/',''))
             rule_exits = False
             for er in existing_rules:
                 if re.match(rse_expression, er['rse_expression']) is not None:
@@ -101,8 +104,7 @@ def add_rule(data, suffix, submit, rse_expression, lifetime, did, cont_type):
         rse_cloud = rse_attrs['cloud']
         rse_site  = rse_attrs['site']
         rse_type  = rse_attrs['type']
-        rse_bool  = f'tier={r
-        se_tier}&type={rse_type}&cloud={rse_cloud}&site={rse_site}'
+        rse_bool  = f'tier={rse_tier}&type={rse_type}&cloud={rse_cloud}&site={rse_site}'
         
         # Get replicating
         rule_ids = []
