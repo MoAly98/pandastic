@@ -11,7 +11,7 @@ from pprint import pprint
 username = 'maly'
 rse_regex = '*SCRATCHDISK*'
 re_rse_regex = rse_regex.replace('*', '.*')
-full_dids_regex  = 'user.maly:*.root*'
+full_dids_regex  = 'user.maly:*v26*'
 scope = full_dids_regex.split(':')[0]
 did_regex = full_dids_regex.split(':')[1]
 check_tags_size = ['.*v26_out.*','.*v26truth.*']
@@ -86,10 +86,10 @@ for tag, size_and_units in size_with_tag.items():
      if size < 1e5 and size > 1e2:
          size_and_units['size'] /= 1e3
          size_and_units['unit'] = 'GB'
-     elif size > 1e5 and size <1e8:
+     elif size > 1e5:
          size_and_units['size'] /= 1e6
          size_and_units['unit'] = 'TB'
          
 
 pprint(size_with_tag)
-pprint(dids_on_regexed_rse) 
+#pprint(dids_on_regexed_rse) 
