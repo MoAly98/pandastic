@@ -10,7 +10,7 @@ import argparse
 # Rucio
 from rucio import client as rucio_client
 
-_h_regex  = 'A regex/pattern in the taskname to be used to find the jobs to retry. This can be for example a suffix. This will be used with .*pattern.*'
+_h_regex  = 'A regex in the taskname to be used to find the jobs to retry. This can be for example a suffix'
 _h_rses   = 'A list of RSEs to delete the DID replicas from'
 _h_scopes = 'Scopes to look for the DIDs in'
 _h_submit = 'Should the code submit the deletion jobs? Default is to run dry'
