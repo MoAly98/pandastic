@@ -144,3 +144,165 @@ def get_rses_from_regex(rse_regex, rsecl):
         if re.match(rse_regex, avail_rse.get('rse')) is not None:
             matching_rses.add(avail_rse.get('rse'))
     return matching_rses
+
+def merge_dicts(d1, d2):
+    '''
+    Method to merge two dictionaries. If the same key is present in both
+    dictionaries, the value from the first dictionary is used.  If the value
+    is a dictionary, the method is called recursively.
+
+    Parameters
+    ----------
+    d1: dict
+        First dictionary to merge
+    d2: dict
+        Second dictionary to merge
+
+    Returns
+    -------
+    merged: dict
+        Merged dictionary
+    '''
+    merged = {}
+    for key in set(d1.keys()) | set(d2.keys()):
+        if key in d1 and key in d2:
+            if type(d1[key]) == dict and type(d2[key]) == dict:
+                merged[key] = merge_dicts(d1[key], d2[key])
+            else:
+                merged[key] = d1[key]
+        elif key in d1:
+            merged[key] = d1[key]
+        else:
+            merged[key] = d2[key]
+    return merged
+
+def sort_dict(d):
+    '''
+    Method to sort a dictionary by key. If the value is a dictionary, the method
+    is called recursively.
+
+    Parameters
+    ----------
+    d: dict
+        Dictionary to sort
+
+    Returns
+    -------
+    sorted_dict: dict
+        Sorted dictionary
+    '''
+    if type(d) != dict:
+        return d
+    sorted_dict = {}
+    for key in sorted(d.keys()):
+        sorted_dict[key] = sort_dict(d[key])
+
+    return sorted_dict
+
+def nested_dict_equal(d1, d2):
+    """
+    Check if all keys and values of two nested dictionaries are equal.
+
+    Parameters:
+        d1: dict
+            First nested dictionary.
+        d2: dict
+            Second nested dictionary.
+
+    Returns:
+        bool: True if all keys and values are equal, False otherwise.
+    """
+    if d1.keys() != d2.keys():
+        return False
+    for key in d1.keys():
+        if type(d1[key]) != type(d2[key]):
+            return False
+        if isinstance(d1[key], dict):
+            if not nested_dict_equal(d1[key], d2[key]):
+                return False
+        elif d1[key] != d2[key]:
+            return False
+    return True
+
+def get_camp(string):
+    '''
+    Method to get the campaign from a dataset name. The method looks
+    for r9364, r10201, r10724 in the dataset name and returns the
+    corresponding campaign. If none of these are found, 'unknown' is
+    returned.
+
+    Parameters
+    ----------
+    string: str
+        Dataset/Job name to get the campaign from
+
+    Returns
+    -------
+    campaign: str
+        Campaign name. Can be 'mc16a', 'mc16d', 'mc16e' or 'unknown'.
+
+    '''
+
+    if   re.findall("r9364",  string) != []: return 'mc16a'
+    elif re.findall("r10201", string) != []: return 'mc16d'
+    elif re.findall("r10724", string) != []: return 'mc16e'
+    else:   return 'unknown'
+
+def get_dsid(string):
+    '''
+    Method to get the DSID from a dataset name. The method looks
+    for a 6 digit number in the dataset name and returns it.
+
+    Parameters
+    ----------
+    string: str
+        Dataset/Job name to get the DSID from
+
+    Returns
+    -------
+    dsid: str
+        DSID of the dataset
+    '''
+    dsid = re.findall(r"\D(\d{6})\D", string)
+    dsid = dsid[0]
+
+    return dsid
+
+def get_tag(string):
+    '''
+    Method to get the tag from a dataset name. The method looks
+    for a string of the form e1234_a/s1234_r1234_p1234 in the dataset
+    name and returns it.
+
+    Parameters
+    ----------
+    string: str
+        Dataset/Job name to get the tag from
+
+    Returns
+    -------
+    tag: str
+        Tag of the dataset
+    '''
+    tag = re.findall(r'e\d+_[as]\d+_r\d+_p\d+', string)
+    tag = tag[0]
+    return tag
+
+def progress_bar(items, processed_items=0, bar_length=20, msg='Progress'):
+    '''
+    Displays a progress bar.
+
+    Parameters
+    ----------
+    items: int
+        Total number of items.
+    processed_items: int
+        Number of processed items (default=0)
+    bar_length: int
+        Length of the progress bar in characters (default=20).
+    '''
+    percent = processed_items / items
+    hashes = '#' * int(percent * bar_length)
+    spaces = ' ' * (bar_length - len(hashes))
+    print(f"\r{msg}: [{hashes}{spaces}] {percent*100:.2f}%", end="\n")
+
