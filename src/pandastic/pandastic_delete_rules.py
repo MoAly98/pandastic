@@ -39,7 +39,7 @@ _h_did                    = 'Subset of the jobs following the pattern to keep'
 _h_submit                 = 'Should the code submit the rule deletion jobs? Default is to run dry'
 _h_usetask                = 'Should the regex be used to filter PanDA jobs? Specify task statuses to look for here'
 _h_containers             = 'Should the code only delete containers rules? Default is to delete individual dataset rules. DID regex will be used to match the container name with --usetask'
-
+_h_matchfiles             = 'Strict requirment when finding datasets from PanDA tasks that input and output number of files match for a given task before we delete rules of containers/datasets associated with it'
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'assigned', 'starting', 'running',
@@ -65,12 +65,13 @@ def argparser():
     parser.add_argument('--usetask',                  nargs='+', choices = _choices_usetasks,            help=_h_usetask)
     parser.add_argument('--type',                     type=str,   choices=['OUT','IN'],                  help=_h_type)
     parser.add_argument('--containers',               action='store_true',                               help=_h_containers)
+    parser.add_argument('--matchfiles',               action='store_true',                               help=_h_matchfiles)
     parser.add_argument('--submit',                   action='store_true',                               help=_h_submit)
 
     return parser.parse_args()
 
 
-def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont):
+def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont, matchfiles):
     '''
     Method to get the datasets from the jobs.
 
@@ -86,7 +87,8 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont):
         Type of dataset to look for. Either 'IN' or 'OUT'
     del_cont: bool
         Should the code delete only container rules? if False, delete individual dataset rules
-
+    matchfiles: bool
+        Should the code delete containers/datasets if number of input and output files match for the associated task?
     Returns
     -------
     datasets: list
@@ -156,14 +158,14 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont):
                 task_to_saved_ds[taskname].append(contname)
                 # If we are deleting containers rules, add the container
                 datasets.add(contname)
-
-    # for task, dstype_to_nfiles in task_to_nfiles_out.items():
-    #     if dstype_to_nfiles['input'] != dstype_to_nfiles['output']:
-    #         print(f"WARNING:: Task {task} has different number of input and output files. IN = {dstype_to_nfiles['input']}, OUT = {dstype_to_nfiles['output']}")
-    #     for ds in task_to_saved_ds[task]:
-    #         if ds in datasets:
-    #             print(f"WARNING:: Skipping the dataset {ds} for that reason...")
-    #             datasets.remove(ds)
+    if matchfiles:
+        for task, dstype_to_nfiles in task_to_nfiles_out.items():
+            if dstype_to_nfiles['input'] != dstype_to_nfiles['output']:
+                print(f"WARNING:: Task {task} has different number of input and output files. IN = {dstype_to_nfiles['input']}, OUT = {dstype_to_nfiles['output']}")
+            for ds in task_to_saved_ds[task]:
+                if ds in datasets:
+                    print(f"WARNING:: Skipping the dataset {ds} for that reason...")
+                    datasets.remove(ds)
     return datasets
 
 def filter_datasets_to_delete(
@@ -304,15 +306,6 @@ def delete_rule(ruleid):
     except:
         print(f"WARNING:: Rule deletion failed for rule ID {ruleid} ...  skipping!")
 
-    # except rucio.common.exception.DuplicateRule as de:
-    #     print(f"WARNING:: Duplication already done for \n {ds} \n to {rse_expression} ...  skipping!")
-
-    #     return None
-
-    # except rucio.common.exception.ReplicationRuleCreationTemporaryFailed as tfe:
-    #     print(f"WARNING:: Duplication not currently possible for \n {ds} \n to {rse_expression} ...  skipping, try again later!")
-    #     return None
-
 def run():
     '''
     Main method
@@ -357,7 +350,7 @@ def run():
             print(f"INFO:: PanDAs query URL: {url}")
 
             # Workout the containers/datasets to delete rules for from the PanDA tasks
-            to_delete |= get_datasets_from_jobs(tasks, regexes, ds_type, did_regex, only_cont)
+            to_delete |= get_datasets_from_jobs(tasks, regexes, ds_type, did_regex, only_cont, args.matchfiles)
 
     else:
         # =============
