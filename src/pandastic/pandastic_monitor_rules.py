@@ -1,13 +1,9 @@
+# Required Imports
+# System
+import sys, os, re, json
 import argparse
-from pandaclient import Client
-import sys, os, re
-from pandaclient import PBookCore
-from pandaclient import queryPandaMonUtils
+# Rucio
 from rucio import client as rucio_client
-import rucio
-from datetime import datetime
-
-pbook = PBookCore.PBookCore()
 
 def argparser():
     parser = argparse.ArgumentParser()    

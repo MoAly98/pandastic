@@ -74,8 +74,7 @@ def has_rule_on_rse(did, scope, rse, didcl):
     '''
 
     # Find existing rules for the given did
-    rules    = didcl.list_did_rules(scope, did.replace('/',''))
-
+    rules    = list(didcl.list_did_rules(scope, did.replace('/','')))
     for rule in rules:
         if re.match(rse, rule.get("rse_expression")) is not None:
             return True
@@ -140,7 +139,6 @@ def get_rses_from_regex(rse_regex, rsecl):
 
     available_rses = rsecl.list_rses()
     for avail_rse in available_rses:
-        print(avail_rse.get('rse'), rse_regex)
         if re.match(rse_regex, avail_rse.get('rse')) is not None:
             matching_rses.add(avail_rse.get('rse'))
     return matching_rses
@@ -305,4 +303,20 @@ def progress_bar(items, processed_items=0, bar_length=20, msg='Progress'):
     hashes = '#' * int(percent * bar_length)
     spaces = ' ' * (bar_length - len(hashes))
     print(f"\r{msg}: [{hashes}{spaces}] {percent*100:.2f}%", end="\n")
+
+# ===============  Classes  ===================================
+class RulesAndReplicasReq:
+    '''
+    Class to hold the rules and replicas requirements.
+    '''
+    def __init__(self, rule_on_rse, replica_on_rse, rule_or_replica_on_rse):
+        self.rule_on_rse = rule_on_rse
+        self.replica_on_rse = replica_on_rse
+        self.rule_or_replica_on_rse = rule_or_replica_on_rse
+
+    def __repr__(self):
+        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
+    def __str__(self):
+        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
+
 

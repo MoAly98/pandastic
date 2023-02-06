@@ -14,7 +14,7 @@ pbook = PBookCore.PBookCore()
 from rucio import client as rucio_client
 import rucio
 # Pandastic
-from tools import (has_replica_on_rse, has_rule_on_rse, get_rses_from_regex)
+from tools import (has_replica_on_rse, has_rule_on_rse, get_rses_from_regex, RulesAndReplicasReq)
 
 # ===============  Rucio Clients ================
 
@@ -25,8 +25,7 @@ replicacl = rucio_client.replicaclient.ReplicaClient()
 
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================
-_h_regex    = 'A regex in the panda *taskname* to be used to find the jobs to replicate datasets from'
-
+_h_regex                  = 'A regex in the panda *taskname* to be used to find the jobs to replicate datasets from'
 _h_rses                   =  'The RSEs to replicate to (create rules there)'
 _h_rule_on_rse            = 'List of RSEs that the DID must have rule on *any* of them before we replicate it'
 _h_replica_on_rse         = 'List of RSEs that the DID must have replica on *any* of them before we replicate it'
@@ -72,29 +71,6 @@ def argparser():
 
     return parser.parse_args()
 
-'''
-    regex: str
-        Regex to match the taskname of the jobs if --usetask is used.
-        Otherwise will be used to match the dataset name from list of
-        datasets for the scopes provided.
-    cont_type: str
-        Type of dataset to look for. Either 'IN' or 'OUT'
-'''
-
-class RulesAndReplicasReq:
-    '''
-    Class to hold the rules and replicas requirements.
-    '''
-    def __init__(self, rule_on_rse, replica_on_rse, rule_or_replica_on_rse):
-        self.rule_on_rse = rule_on_rse
-        self.replica_on_rse = replica_on_rse
-        self.rule_or_replica_on_rse = rule_or_replica_on_rse
-
-    def __repr__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
-    def __str__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
-
 
 def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, repl_cont):
     '''
@@ -110,6 +86,8 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, repl_cont):
         Regex to match the dataset names
     cont_type: str
         Type of dataset to look for. Either 'IN' or 'OUT'
+    repl_cont: bool
+        Should the code replicate containers ? If not, individual datasets will be replicated
 
     Returns
     -------
@@ -123,11 +101,13 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, repl_cont):
     # List to hold names of DIDs to replicate
     datasets = set()
     hated_containers = set()
-    for job in jobs[:1]:
+    for job in jobs:
         taskname = job.get("taskname")
         if all(re.match(rf'{rgx}', taskname) is None for rgx in regexes):    continue
 
         for ds in job.get("datasets"):
+
+
 
             # Get the type of the dataset
             dstype = ds.get("type")
@@ -140,6 +120,8 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, repl_cont):
             # Get the name of the dataset parent container
             contname = ds.get("containername")
             # For optimisation, skip the dataset if it's in a hated container
+            # === Note datasets live in containers,
+            # multiple datasets can live in the same container ===
             if contname in hated_containers:    continue
 
             # Get the scope from the container name
