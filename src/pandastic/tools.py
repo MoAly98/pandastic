@@ -1,5 +1,5 @@
 import re
-def dataset_size(dses, didclient):
+def dataset_size(ds, scope, didclient):
 
     '''
     Method to compute the size of a dataset in bytes.
@@ -19,12 +19,8 @@ def dataset_size(dses, didclient):
         The total size of the datasets in bytes
 
     '''
-
-    totalsize = 0
-    for ds in dses:
-        scope = ".".join(ds.split(".")[:2])
-        files = list(didclient.list_files(scope,ds.replace('/','')))
-        totalsize += sum([file['bytes'] for file in files])
+    files = list(didclient.list_files(scope,ds.replace('/','')))
+    totalsize = sum([file['bytes'] for file in files])
 
     return totalsize
 
@@ -166,6 +162,8 @@ def merge_dicts(d1, d2):
         if key in d1 and key in d2:
             if type(d1[key]) == dict and type(d2[key]) == dict:
                 merged[key] = merge_dicts(d1[key], d2[key])
+            elif type(d1[key]) == set and type(d2[key]) == set:
+                merged[key] = d1[key] | d2[key]
             else:
                 merged[key] = d1[key]
         elif key in d1:
