@@ -41,6 +41,11 @@ _h_submit                 = 'Should the code submit the rule deletion jobs? Defa
 _h_usetask                = 'Should the regex be used to filter PanDA jobs? Specify task statuses to look for here'
 _h_containers             = 'Should the code only delete containers rules? Default is to delete individual dataset rules. DID regex will be used to match the container name with --usetask'
 _h_matchfiles             = 'Strict requirment when finding datasets from PanDA tasks that input and output number of files match for a given task before we delete rules of containers/datasets associated with it'
+_h_outdir                 = 'Output directory for the output files. Default is the current directory'
+_h_fromfiles              = 'Files containing lists of datasets to delete rules for.\n \
+                             If this is used, only --regex, --rses, --submit, --outdir arguments are used as well.\n\
+                             The regex will be used to filter the datasets, and rses will be used get rule IDs to delete'
+
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'assigned', 'starting', 'running',
@@ -63,12 +68,13 @@ def argparser():
     parser.add_argument('--rule_on_rse',              nargs='+',                                         help=_h_rule_on_rse)
     parser.add_argument('--replica_on_rse',           nargs='+',                                         help=_h_replica_on_rse)
     parser.add_argument('--rule_or_replica_on_rse',   action='store_true',                               help=_h_rule_or_replica_on_rse)
-    parser.add_argument('--usetask',                  nargs='+', choices = _choices_usetasks,            help=_h_usetask)
+    parser.add_argument('--usetask',                  nargs='+',  choices = _choices_usetasks,           help=_h_usetask)
     parser.add_argument('--type',                     type=str,   choices=['OUT','IN'],                  help=_h_type)
     parser.add_argument('--containers',               action='store_true',                               help=_h_containers)
     parser.add_argument('--matchfiles',               action='store_true',                               help=_h_matchfiles)
     parser.add_argument('--submit',                   action='store_true',                               help=_h_submit)
-
+    parser.add_argument('--outdir',                   type=str,   default='./',                          help=_h_outdir)
+    parser.add_argument('--fromfiles',                type=str,   nargs='+',                             help=_h_outdir)
     return parser.parse_args()
 
 
@@ -242,7 +248,7 @@ def filter_datasets_to_delete(
 
     return filtered_datasets
 
-def get_ruleids_to_delete(did, rses_to_delete_from, scope=None):
+def get_ruleids_to_delete(did, rses_to_delete_from, rse_regexes, scope):
     '''
     Method to get the rule IDs to delete for a dataset and associated RSEs
 
@@ -262,20 +268,14 @@ def get_ruleids_to_delete(did, rses_to_delete_from, scope=None):
     ruleids_to_delete = []
     found_rses_to_delete_from = []
 
-    # Get the scope from the dataset using didclient
-    if scope is None:
-        if ':' in did:
-            scope = did.split(':')[0]
-        else:
-            scope = '.'.join(did.split('.')[:2])
-
     # Get the rules for the dataset
     rules = list(didcl.list_did_rules(scope, did.replace('/','')))
     # Get the rule IDs to delete
     for rule in rules:
         rse_for_rule = rule.get('rse_expression')
+
         rule_id = rule['id']
-        if rse_for_rule in rses_to_delete_from:
+        if rse_for_rule in rses_to_delete_from or any(re.match(rse_rgx, rse_for_rule) for rse_rgx in rse_regexes):
             ruleids_to_delete.append(rule_id)
             found_rses_to_delete_from.append(rse_for_rule)
 
@@ -291,11 +291,31 @@ def delete_rule(ruleid):
     ruleid: str
         rule ID to delete
     '''
-
     try:
-        rulecl.delete_replication_rule(rule_id, purge_replicas=True)
+        rulecl.delete_replication_rule(ruleid, purge_replicas=True)
     except:
         print(f"WARNING:: Rule deletion failed for rule ID {ruleid} ...  skipping!")
+
+def get_datasets_from_files(files):
+    '''
+    Method to get the datasets from a list of files
+
+    Parameters
+    ----------
+    files: list
+        list of files containing datasets
+
+    Returns
+    -------
+    all_datasets: list
+        list of datasets
+    '''
+    all_datasets = []
+    for f in files:
+        with open(f,'r') as f:
+            datasets = f.readlines()
+        all_datasets.extend(datasets)
+    return all_datasets
 
 def run():
     '''
@@ -304,6 +324,10 @@ def run():
     # ========  Get the arguments ============ #
     args = argparser()
 
+    # Prepare the output directory
+    outdir = args.outdir
+    os.makedirs(outdir, exist_ok=True)
+
     regexes   = args.regex
 
     only_cont = args.containers
@@ -311,12 +335,31 @@ def run():
 
     usetasks  = '|'.join(args.usetask) if args.usetask is not None else None
 
+    if args.fromfiles is not None and usetasks is not None:
+        print("ERROR: Cannot specify both --usetask and --fromfiles. Exiting.")
+        exit(1)
+
     # If specified, make sure the dataset has a rule/replica/both on RSEs with given regex
     existing_copies_req = RulesAndReplicasReq(args.rule_on_rse, args.replica_on_rse, args.rule_or_replica_on_rse)
 
+    # Get the RSEs to delete rules from, from available RSEs using regexes (if any)
+    rses_to_delete_from = set()
+    for rse in args.rses:
+        rses_to_delete_from |= get_rses_from_regex(rse, rsecl)
+
     to_delete = defaultdict(set)
 
-    if usetasks is not None:
+    if args.fromfiles is not None:
+        # Get the datasets from the files
+        all_datasets = get_datasets_from_files(args.fromfiles)
+        for ds in all_datasets:
+            scope, did = ds.split(':')
+            if not any(re.match(regex, did) for regex in regexes):
+                continue
+            to_delete[scope].add(did.strip())
+
+
+    elif usetasks is not None:
 
         # ===========
         # If we are using PanDA tasks, get the datasets from the tasks
@@ -370,9 +413,6 @@ def run():
                 # Progress Bar
                 progress_bar(len(dids), 0)
                 for i, did in enumerate(dids):
-                    # Fast track -- skip datasets with no rrules on any of the regexed rses we delete from
-                    if not any(has_rule_on_rse(did, scope, rse, didcl) for rse in args.rses):
-                        continue
 
                     # Progresss Bar
                     if(len(dids) > 100):
@@ -381,6 +421,10 @@ def run():
                         if (i+1)%10 == 0:  progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
                     else:
                         progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
+
+                    # Fast track -- skip datasets with no rrules on any of the regexed rses we delete from
+                    if not any(has_rule_on_rse(did, scope, rse, didcl) for rse in args.rses):
+                        continue
 
                     # Only process containers/datasets based on user specified option
                     did_type = didcl.get_metadata(scope, did.replace('/','')).get('did_type')
@@ -394,10 +438,6 @@ def run():
         to_delete = filter_datasets_to_delete(to_delete, args.rses, existing_copies_req)
         print("INFO:: Found", len(list(to_del_dses)), "datasets to delete rules for after filter from scope", scope)
 
-    # Get the RSEs to delete rules from, from available RSEs using regexes (if any)
-    rses_to_delete_from = set()
-    for rse in args.rses:
-        rses_to_delete_from |= get_rses_from_regex(rse, rsecl)
 
     # === Delete the datasets === #
     # Keep track of the deletions (what, where, ruleid)
@@ -406,34 +446,40 @@ def run():
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     ndeleted, totalsize_del = 0, 0
     # Write the ruleids to a file so we can monitor the deletions
-    with open(f'monit_deletion_output_{now}.txt', 'w') as monitf:
-        for scope, dids in to_delete.items():
-            for did in dids:
-                rule_ids_rses_zip = get_ruleids_to_delete(did, rses_to_delete_from, scope)
-                for ruleid, rse in rule_ids_rses_zip:
+    dids_monit_file = open(f'{outdir}/monit_deletion_dids_{now}.txt', 'w')
+    ruleid_monit_file = open(f'{outdir}/monit_deletion_ruleids_{now}.txt', 'w')
+    for scope, dids in to_delete.items():
+        for did in dids:
+            rule_ids_rses_zip = get_ruleids_to_delete(did, rses_to_delete_from, args.rses, scope)
+            for ruleid, rse in rule_ids_rses_zip:
 
-                    print("INFO:: Deleting rules for dataset: ", did)
-                    print(f"INFO:: Deleting rule ID {ruleid} on RSE {rse}")
+                print("INFO:: Deleting rules for dataset: ", did)
+                print(f"INFO:: Deleting rule ID {ruleid} on RSE {rse}")
 
-                    # Only really add the rule if --submit is used
-                    if args.submit:
-                        delete_rule(ruleid)
+                # Only really add the rule if --submit is used
+                if args.submit:
+                    delete_rule(ruleid)
 
-                    monitf.write(ruleid+'\n')
-                    ndeleted += 1
-                    totalsize_del += dataset_size(did, scope, didcl)
-                    actual_deletion_summary[did][rse]['ruleid'] = ruleid
+                dids_monit_file.write(f"{scope}:{did}\n")
+                ruleid_monit_file.write(ruleid+'\n')
+                ndeleted += 1
+                totalsize_del += dataset_size(did, scope, didcl)
+                actual_deletion_summary[did][rse]['ruleid'] = ruleid
 
-    print("INFO:: TOTAL NUMBER OF DATASETS TO DELETE RULES FOR: ", ndeleted)
+    dids_monit_file.close()
+    ruleid_monit_file.close()
+
+    print("INFO:: TOTAL NUMBER OF RULES TO DELETE RULES FOR: ", ndeleted)
     good_units_size = bytes_to_best_units(totalsize_del)
     print("INFO:: TOTAL Size OF DATASETS TO DELETE RULES FOR: ", good_units_size[0], good_units_size[1])
 
     # Remove the monit file if --submit is not used
     if not args.submit:
         print("INFO:: --submit not used, so not deleting rules. Deleting monit file")
-        os.remove(f'monit_deletion_output_{now}.txt')
+        os.unlink(f'{outdir}/monit_deletion_ruleids_{now}.txt')
+
     # Dump the deletion summary to a json file
-    with open(f'datasets_to_delete_{now}.json', 'w') as f:
+    with open(f'{outdir}/datasets_to_delete_{now}.json', 'w') as f:
         json.dump(actual_deletion_summary, f, indent=4)
 
 if __name__ == "__main__":  run()
