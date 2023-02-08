@@ -74,11 +74,11 @@ def argparser():
     parser.add_argument('--matchfiles',               action='store_true',                               help=_h_matchfiles)
     parser.add_argument('--submit',                   action='store_true',                               help=_h_submit)
     parser.add_argument('--outdir',                   type=str,   default='./',                          help=_h_outdir)
-    parser.add_argument('--fromfiles',                type=str,   nargs='+',                             help=_h_outdir)
+    parser.add_argument('--fromfiles',                type=str,   nargs='+',                             help=_h_fromfiles)
     return parser.parse_args()
 
 
-def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont, matchfiles, scopes):
+def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont, matchfiles):
     '''
     Method to get the datasets from the jobs.
 
@@ -96,10 +96,11 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont, matchf
         Should the code delete only container rules? if False, delete individual dataset rules
     matchfiles: bool
         Should the code delete containers/datasets if number of input and output files match for the associated task?
+
     Returns
     -------
-    datasets: list
-        Preliminary list of datasets to delete rules for
+    datasets: defaultdict(set)
+        A dictionary of datasets to delete rules for with keys being scope and values being a set of dataset names
     '''
 
     if cont_type == 'OUT':  look_for_type = 'output'
@@ -197,8 +198,6 @@ def filter_datasets_to_delete(
         dict with keys as scopes and values as sets of datasets to delete rules for
     rses: str
         RSE to delete from
-    scope: str
-        Scope of the datasets
     rules_and_replicas_req: RulesAndReplicasReq
         Rules and replicas requirements
 
@@ -386,7 +385,7 @@ def run():
             print(f"INFO:: PanDAs query URL: {url}")
 
             # Workout the containers/datasets to delete rules for from the PanDA tasks
-            to_delete = merge_dicts(to_delete, get_datasets_from_jobs(tasks, regexes, ds_type, did_regex, only_cont, args.matchfiles, scopes))
+            to_delete = merge_dicts(to_delete, get_datasets_from_jobs(tasks, regexes, ds_type, did_regex, only_cont, args.matchfiles))
     else:
         # =============
         # If no association with PanDA tasks, just use the regexes over all rucio datasets in given scopes
@@ -451,6 +450,12 @@ def run():
     for scope, dids in to_delete.items():
         for did in dids:
             rule_ids_rses_zip = get_ruleids_to_delete(did, rses_to_delete_from, args.rses, scope)
+            try:
+                totalsize_del += dataset_size(did, scope, didcl)
+            except rucio.common.exception.DataIdentifierNotFound:
+                print("WARNING:: Dataset not found in Rucio: ", did, "Skipping...")
+                continue
+
             for ruleid, rse in rule_ids_rses_zip:
 
                 print("INFO:: Deleting rules for dataset: ", did)
@@ -463,7 +468,7 @@ def run():
                 dids_monit_file.write(f"{scope}:{did}\n")
                 ruleid_monit_file.write(ruleid+'\n')
                 ndeleted += 1
-                totalsize_del += dataset_size(did, scope, didcl)
+
                 actual_deletion_summary[did][rse]['ruleid'] = ruleid
 
     dids_monit_file.close()
@@ -475,7 +480,7 @@ def run():
 
     # Remove the monit file if --submit is not used
     if not args.submit:
-        print("INFO:: --submit not used, so not deleting rules. Deleting monit file")
+        print("INFO:: --submit not used, so not deleting rules. Deleting ruleid monit file")
         os.unlink(f'{outdir}/monit_deletion_ruleids_{now}.txt')
 
     # Dump the deletion summary to a json file
