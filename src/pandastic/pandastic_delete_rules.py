@@ -14,11 +14,11 @@ pbook = PBookCore.PBookCore()
 from rucio import client as rucio_client
 import rucio
 # Pandastic
-from tools import (has_replica_on_rse, has_rule_on_rse, get_rses_from_regex, RulesAndReplicasReq,
-                   dataset_size, bytes_to_best_units, progress_bar, merge_dicts)
+from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, merge_dicts )
+from common import ( get_datasets_from_jobs, filter_datasets_by_existing_copies, get_datasets_from_files,
+                     get_rses_from_regex, has_replica_on_rse, has_rule_on_rse, RulesAndReplicasReq)
 
 # ===============  Rucio Clients ================
-
 rulecl = rucio_client.ruleclient.RuleClient()
 didcl = rucio_client.didclient.DIDClient()
 rsecl = rucio_client.rseclient.RSEClient()
@@ -78,175 +78,6 @@ def argparser():
     return parser.parse_args()
 
 
-def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, del_cont, matchfiles):
-    '''
-    Method to get the datasets from the jobs.
-
-    Parameters
-    ----------
-    jobs: list
-        List of jobs to search through
-    regexes: list
-        List of regexes to match the taskname of the jobs
-    did_regex: str
-        Regex to match the dataset names
-    cont_type: str
-        Type of dataset to look for. Either 'IN' or 'OUT'
-    del_cont: bool
-        Should the code delete only container rules? if False, delete individual dataset rules
-    matchfiles: bool
-        Should the code delete containers/datasets if number of input and output files match for the associated task?
-
-    Returns
-    -------
-    datasets: defaultdict(set)
-        A dictionary of datasets to delete rules for with keys being scope and values being a set of dataset names
-    '''
-
-    if cont_type == 'OUT':  look_for_type = 'output'
-    else:   look_for_type = 'input'
-
-    # List to hold names of DIDs to delete rules for
-    datasets = defaultdict(set)
-    task_to_nfiles_out = defaultdict(lambda: defaultdict(lambda: defaultdict(int)))
-    task_to_saved_ds   = defaultdict(lambda: defaultdict(list))
-    hated_containers = set()
-    for job in jobs:
-        taskname = job.get("taskname")
-        if all(re.match(rf'{rgx}', taskname) is None for rgx in regexes):    continue
-
-        for ds in job.get("datasets"):
-
-            # Get the type of the dataset
-            dstype = ds.get("type")
-            # Get the name of the dataset
-            dsname = ds.get("datasetname")
-            # Skip ds if it has no files to avoid rucio headaches
-            if ds.get("nfilesfinished") < 1 : continue
-            # Get the name of the dataset parent container
-            contname = ds.get("containername")
-
-            # Get the scope from the dsname
-            if ':' in dsname:
-                scope = dsname.split(':')[0]
-            else:
-                scope = '.'.join(dsname.split('.')[:2])
-
-            # For optimisation, skip the dataset if it's in a hated container
-            # === Note datasets live in containers,
-            # multiple datasets can live in the same container ===
-            if contname in hated_containers:    continue
-            if matchfiles:
-                try:
-                    # Number of files in the dataset
-                    ds_nfiles = len(list(didcl.list_files(scope, dsname.split(':')[-1])))
-                    # Skip the type of dataset we don't care about
-                    if(dstype != look_for_type):
-                        task_to_nfiles_out[scope][taskname][dstype] += ds_nfiles
-                        continue
-                    task_to_nfiles_out[scope][taskname][dstype] += ds_nfiles
-                except rucio.common.exception.DataIdentifierNotFound as e:
-                    print(f"Dataset {dsname} not found in Rucio -- skipping")
-                    continue
-
-
-
-            # # Also skip if another dataset added this container
-            # if contname in datasets:    continue
-            if not del_cont:
-                # Check if the dataset name matches the DID regex
-                if did_regex is not None:
-                    # Skip the dataset if it doesn't match the DID regex
-                    if re.match(did_regex, dsname) is None: continue
-                task_to_saved_ds[scope][taskname].append(dsname)
-
-                # If we are not deleting containers rules, add the dataset
-                datasets[scope].add(dsname)
-            else:
-                # Check if the dataset name matches the DID regex
-                if did_regex is not None:
-                    # Skip the dataset if the container doesn't match the DID regex
-                    if re.match(did_regex, contname) is None:
-                        hated_containers.add(contname)
-                        continue
-
-                task_to_saved_ds[scope][taskname].append(contname)
-                # If we are deleting containers rules, add the container
-                datasets[scope].add(contname)
-    if matchfiles:
-        for scope, task_dstype_to_nfiles in task_to_nfiles_out.items():
-            for task, dstype_to_nfiles in task_dstype_to_nfiles.items():
-                if dstype_to_nfiles['input'] != dstype_to_nfiles['output']:
-                    print(f"WARNING:: Task {task} has different number of input and output files. IN = {dstype_to_nfiles['input']}, OUT = {dstype_to_nfiles['output']}")
-                for ds in task_to_saved_ds[scope][task]:
-                    if ds in datasets[scope]:
-                        print(f"WARNING:: Skipping the dataset {ds} for that reason...")
-                        datasets[scope].remove(ds)
-    return datasets
-
-def filter_datasets_to_delete(
-    datasets : 'defaultdict(set)',
-    rses: str,
-    rules_and_replicas_req: RulesAndReplicasReq,
-):
-    '''
-    Method to filter the datasets to delete based on the rules and replicas requirements.
-
-    Parameters
-    ----------
-    datasets: defaultdict(set)
-        dict with keys as scopes and values as sets of datasets to delete rules for
-    rses: str
-        RSE to delete from
-    rules_and_replicas_req: RulesAndReplicasReq
-        Rules and replicas requirements
-
-    Returns
-    -------
-    filtered_datasets: defaultdict(set)
-        dictionary with keys as scopes and values as sets of datasets to delete rules for
-    '''
-
-    filtered_datasets = defaultdict(set)
-    for scope, dses in datasets.items():
-        for ds in dses:
-            # First need to check if thee dataset has a rule on the RSE we want to delete from
-            rsefrom_to_remove =[]
-
-            # Now we check if the dataset has a rule on the RSE that is required to have a rule on it
-            req_existing_rule_exists = True # Set to True by default so that if no RSEs are specified, the check passes
-            if rules_and_replicas_req.rule_on_rse is not None:
-                # Set to False so that if RSEs are specified, and none of them have a rule, the check fails
-                req_existing_rule_exists = False
-                for rse in rules_and_replicas_req.rule_on_rse:
-                    req_existing_rule_exists = has_rule_on_rse(ds, scope, rse, didcl)
-                    if req_existing_rule_exists: break
-
-            # Now we check if the dataset has a replica on the RSE that is required to have a replica on it
-
-            req_existing_replica_exists = True # Set to True by default so that if no RSEs are specified, the check passes
-            if rules_and_replicas_req.replica_on_rse is not None:
-                # Set to False so that if RSEs are specified, and none of them have a replica, the check fails
-                req_existing_replica_exists = False
-                for rse in rules_and_replicas_req.replica_on_rse:
-                    req_existing_replica_exists = has_replica_on_rse(ds, scope, rse, replicacl)
-                    if req_existing_replica_exists: break
-
-            # If user is asking for either a rule or a replica but necessarily both, then we check if either exists
-            if rules_and_replicas_req.rule_or_replica_on_rse:
-                if not (req_existing_rule_exists or req_existing_replica_exists):
-                    print(f"WARNING: Dataset {ds} does not satisfy existing rules and replicas requirements. Skipping.")
-                    continue
-            # If user is asking for both a rule and a replica, then we check if both exist
-            else:
-                if not (req_existing_rule_exists and req_existing_replica_exists):
-                    print(f"WARNING: Dataset {ds} does not satisfy existing rules and replicas requirements. Skipping.")
-                    continue
-
-            filtered_datasets[scope].add(ds)
-
-    return filtered_datasets
-
 def get_ruleids_to_delete(did, rses_to_delete_from, rse_regexes, scope):
     '''
     Method to get the rule IDs to delete for a dataset and associated RSEs
@@ -272,7 +103,6 @@ def get_ruleids_to_delete(did, rses_to_delete_from, rse_regexes, scope):
     # Get the rule IDs to delete
     for rule in rules:
         rse_for_rule = rule.get('rse_expression')
-
         rule_id = rule['id']
         if rse_for_rule in rses_to_delete_from or any(re.match(rse_rgx, rse_for_rule) for rse_rgx in rse_regexes):
             ruleids_to_delete.append(rule_id)
@@ -294,27 +124,6 @@ def delete_rule(ruleid):
         rulecl.delete_replication_rule(ruleid, purge_replicas=True)
     except:
         print(f"WARNING:: Rule deletion failed for rule ID {ruleid} ...  skipping!")
-
-def get_datasets_from_files(files):
-    '''
-    Method to get the datasets from a list of files
-
-    Parameters
-    ----------
-    files: list
-        list of files containing datasets
-
-    Returns
-    -------
-    all_datasets: list
-        list of datasets
-    '''
-    all_datasets = []
-    for f in files:
-        with open(f,'r') as f:
-            datasets = f.readlines()
-        all_datasets.extend(datasets)
-    return all_datasets
 
 def run():
     '''
@@ -385,21 +194,23 @@ def run():
             print(f"INFO:: PanDAs query URL: {url}")
 
             # Workout the containers/datasets to delete rules for from the PanDA tasks
-            to_delete = merge_dicts(to_delete, get_datasets_from_jobs(tasks, regexes, ds_type, did_regex, only_cont, args.matchfiles))
+            to_delete = merge_dicts(to_delete, get_datasets_from_jobs(tasks, regexes, ds_type, did_regex, only_cont, args.matchfiles, didcl))
     else:
         # =============
         # If no association with PanDA tasks, just use the regexes over all rucio datasets in given scopes
         # =============
-
+        # ==================================================== #
+        # Warn user about useless args
+        # ==================================================== #
         if args.grid_user != pbook.username:
             print("WARNING:: You are not using --usetask, so --grid_user is useless. Ignoring --grid_user")
-
         if args.days is not None:
             print("WARNING:: You are not using --usetask, so --days is useless. Ignoring --days")
         if args.type is not None:
             print("WARNING:: You are not using --usetask, so --type is useless. Ignoring --type")
         if args.did is not None:
             print("WARNING:: You are not using --usetask, so --did is useless. Ignoring --did")
+        # ==================================================== #
 
         # if --usetask is not used, the scopes must be specified
         assert scopes is not None, "ERROR:: --scopes must be specified if --usetask is not used"
@@ -409,17 +220,15 @@ def run():
             for regex in regexes:
                 print("INFO:: Looking for datasets matching regex", regex)
                 dids = list(didcl.list_dids(scope, {'name': regex.replace('.*','*').replace('/','')}))
-                # Progress Bar
-                progress_bar(len(dids), 0)
+
+                if len(dids) == 0:
+                    print("WARNING:: No datasets found matching regex", regex)
+                    continue
+
                 for i, did in enumerate(dids):
 
-                    # Progresss Bar
-                    if(len(dids) > 100):
-                        if (i+1)%100 == 0: progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
-                    elif len(dids) > 10 and len(dids) <= 100:
-                        if (i+1)%10 == 0:  progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
-                    else:
-                        progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
+                    # ============ Progresss Bar ============= #
+                    draw_progress_bar(len(dids), i, f'Progress for collecting dids matching regex {regex}')
 
                     # Fast track -- skip datasets with no rrules on any of the regexed rses we delete from
                     if not any(has_rule_on_rse(did, scope, rse, didcl) for rse in args.rses):
@@ -431,49 +240,73 @@ def run():
                     elif not only_cont and did_type != 'DATASET': continue
                     to_delete[scope].add(did)
 
-    for scope, to_del_dses in to_delete.items():
-        print("INFO:: Found", len(list(to_del_dses)), "datasets to delete rules for, from scope", scope)
-        # Filter the datasets to delete rules for based on the existing copies
-        to_delete = filter_datasets_to_delete(to_delete, args.rses, existing_copies_req)
-        print("INFO:: Found", len(list(to_del_dses)), "datasets to delete rules for after filter from scope", scope)
+    # Filter the datasets based on the existing copies requirement
+    to_delete = filter_datasets_by_existing_copies(to_delete, existing_copies_req)
 
-
-    # === Delete the datasets === #
+    # ==================================================== #
+    # ================= Delete the datasets ============== #
+    # ==================================================== #
     # Keep track of the deletions (what, where, ruleid)
     actual_deletion_summary = defaultdict(lambda: defaultdict(dict))
-
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     ndeleted, totalsize_del = 0, 0
-    # Write the ruleids to a file so we can monitor the deletions
+
+    # Prepare output files for monitoring
     dids_monit_file = open(f'{outdir}/monit_deletion_dids_{now}.txt', 'w')
     ruleid_monit_file = open(f'{outdir}/monit_deletion_ruleids_{now}.txt', 'w')
+
+    # Prepare in case a dataset has no rules
+    no_valid_rules = True
+
+    # Loop over the scopes
     for scope, dids in to_delete.items():
+        # Loop over the datasets in scope
         for did in dids:
+
+            # Find the rules to delete and rses to delete them from
             rule_ids_rses_zip = get_ruleids_to_delete(did, rses_to_delete_from, args.rses, scope)
+
+            # Try to get the size of the dataset, use as proxy to skip datasets
+            # found from a task but not existing on Rucio...
             try:
                 totalsize_del += dataset_size(did, scope, didcl)
             except rucio.common.exception.DataIdentifierNotFound:
                 print("WARNING:: Dataset not found in Rucio: ", did, "Skipping...")
                 continue
 
+            # Loop over the rules to delete and rse to delete them from
             for ruleid, rse in rule_ids_rses_zip:
+                # If we are here, at least one rule was found for the dataset
+                no_valid_rules = False
 
+                # Tell the user what we are doing
                 print("INFO:: Deleting rules for dataset: ", did)
                 print(f"INFO:: Deleting rule ID {ruleid} on RSE {rse}")
 
                 # Only really add the rule if --submit is used
-                if args.submit:
-                    delete_rule(ruleid)
+                if args.submit: delete_rule(ruleid)
 
+                # Write to monitoring scripts
                 dids_monit_file.write(f"{scope}:{did}\n")
                 ruleid_monit_file.write(ruleid+'\n')
+                # Keep track of number of rule deletions
                 ndeleted += 1
-
+                # Keep track of what we deleted exactly
                 actual_deletion_summary[did][rse]['ruleid'] = ruleid
 
+            # Tell the user if no rules were found for the dataset
+            if no_valid_rules:
+                print("WARNING:: No rules to delete for dataset: ", did)
+                continue
+    # Close the files for monitoring
     dids_monit_file.close()
     ruleid_monit_file.close()
 
+    # Dump the deletion summary to a json file
+    with open(f'{outdir}/datasets_to_delete_{now}.json', 'w') as f:
+        json.dump(actual_deletion_summary, f, indent=4)
+
+    # Summarise to user
     print("INFO:: TOTAL NUMBER OF RULES TO DELETE RULES FOR: ", ndeleted)
     good_units_size = bytes_to_best_units(totalsize_del)
     print("INFO:: TOTAL Size OF DATASETS TO DELETE RULES FOR: ", good_units_size[0], good_units_size[1])
@@ -482,9 +315,5 @@ def run():
     if not args.submit:
         print("INFO:: --submit not used, so not deleting rules. Deleting ruleid monit file")
         os.unlink(f'{outdir}/monit_deletion_ruleids_{now}.txt')
-
-    # Dump the deletion summary to a json file
-    with open(f'{outdir}/datasets_to_delete_{now}.json', 'w') as f:
-        json.dump(actual_deletion_summary, f, indent=4)
 
 if __name__ == "__main__":  run()

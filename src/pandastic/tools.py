@@ -50,95 +50,6 @@ def bytes_to_best_units(ds_size):
         ds_size/=1e6
         return (ds_size, 'MB')
 
-def has_rule_on_rse(did, scope, rse, didcl):
-    '''
-    Method to check if a dataset has a rule on a given RSE
-
-    Parameters
-    ----------
-    did: str
-        Name of the dataset to check
-    scope: str
-        Scope of the dataset to check
-    rse: str
-        Name of the RSE to check
-
-    Returns
-    -------
-    has_rule: bool
-        True if the dataset has a rule on the RSE, False otherwise
-    '''
-
-    # Find existing rules for the given did
-    rules    = list(didcl.list_did_rules(scope, did.replace('/','')))
-    for rule in rules:
-        if re.match(rse, rule.get("rse_expression")) is not None:
-            return True
-
-    # If here, no rule found on RSE
-    return False
-
-def has_replica_on_rse(did, scope, rse, replicacl):
-    '''
-    Method to check if a dataset has a replica on a given RSE. This
-    is done by checking if all the files in the dataset have a replica
-    on the RSE.
-
-    Parameters
-    ----------
-    did: str
-        Name of the dataset to check
-    scope: str
-        Scope of the dataset to check
-    rse: str
-        Name of the RSE to check
-
-    Returns
-    -------
-    has_replica: bool
-        True if the dataset has a replica on the RSE, False otherwise
-    '''
-
-    file_replicas = list(replicacl.list_replicas([{'scope': scope, 'name': did.replace('/','')}]))
-
-    file_replica_is_on_req_rse = []
-
-    for file_replica in file_replicas:
-        fname = file_replica.get("name")
-        file_rses = list(file_replica.get("rses").keys())
-        if any(re.match(rse, frse) is not None for frse in file_rses):
-            file_replica_is_on_req_rse.append(True)
-        else:
-            file_replica_is_on_req_rse.append(False)
-
-    if all(file_replica_is_on_req_rse): return True
-    else: return False
-
-def get_rses_from_regex(rse_regex, rsecl):
-    '''
-    Method to get a list of RSEs from a list of RSEs that match a regex
-
-    Parameters
-    ----------
-    rse_regex: str
-        Regex to match RSEs against
-    rsecl: rucio.client.rseclient.RSEClient
-        RSE client to use to get the list of RSEs
-
-    Returns
-    -------
-    matching_rses: list
-        set of RSEs that match the regex
-    '''
-
-    matching_rses = set()
-
-    available_rses = rsecl.list_rses()
-    for avail_rse in available_rses:
-        if re.match(rse_regex, avail_rse.get('rse')) is not None:
-            matching_rses.add(avail_rse.get('rse'))
-    return matching_rses
-
 def merge_dicts(d1, d2):
     '''
     Method to merge two dictionaries. If the same key is present in both
@@ -302,19 +213,30 @@ def progress_bar(items, processed_items=0, bar_length=20, msg='Progress'):
     spaces = ' ' * (bar_length - len(hashes))
     print(f"\r{msg}: [{hashes}{spaces}] {percent*100:.2f}%", end="\n")
 
-# ===============  Classes  ===================================
-class RulesAndReplicasReq:
+def draw_progress_bar(numitems, current_item, msg = 'Progress'):
     '''
-    Class to hold the rules and replicas requirements.
-    '''
-    def __init__(self, rule_on_rse, replica_on_rse, rule_or_replica_on_rse):
-        self.rule_on_rse = rule_on_rse
-        self.replica_on_rse = replica_on_rse
-        self.rule_or_replica_on_rse = rule_or_replica_on_rse
+    Displays a progress bar.
 
-    def __repr__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
-    def __str__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
+    Parameters
+    ----------
+    numitems: int
+        Total number of items.
+    current_item: int
+        Number of processed items (default=0)
+    msg: str
+        Message to display before the progress bar (default='Progress')
+    '''
+
+    if current_item == 0: progress_bar(numitems, current_item)
+
+    if (numitems > 1000):
+        if (current_item+1)%1000 == 0: progress_bar(numitems, current_item+1, msg=msg)
+    elif (numitems > 100) and numitems <= 1000:
+        if (current_item+1)%100 == 0: progress_bar(numitems, current_item+1, msg=msg)
+        if (current_item+1)%10 == 0:  progress_bar(numitems, current_item+1, msg=msg)
+    else:
+        progress_bar(numitems, current_item+1, msg=msg)
+
+
 
 
