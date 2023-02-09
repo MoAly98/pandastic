@@ -269,6 +269,7 @@ def run():
     days = args.days
     # Get the output path for the summary
     outpath = args.outpath
+    os.makedirs('/'.join(outpath.split('/')[:-1]), exist_ok=True)
 
     # Get the list of what defines complete and incomplete jobs
     complete = '|'.join(args.complete)
@@ -318,6 +319,10 @@ def run():
     print("INFO:: Sorting the dictionary by DSID, campaign and sim alphabetically")
     # Sort the dictionary by DSID, campaign and sim alphabetically
     all_jobs = sort_dict(all_jobs)
+
+    if all_jobs == {}:
+        print("WARNING:: No jobs found!")
+        return
 
     # Convert the dictionary to a pandas multi-index dataframe
     df = pd.DataFrame.from_dict(all_jobs, orient="index").rename_axis(["DSID", "Campaign", "FS/AFII"])
