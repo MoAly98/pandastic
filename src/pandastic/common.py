@@ -209,24 +209,24 @@ def filter_datasets_by_existing_copies(
 
     return filtered_datasets
 
-def get_datasets_from_files(files):
+def get_lines_from_files(files):
     '''
-    Method to get the datasets from a list of files
+    Method to get the lines from a list of files in one list
 
     Parameters
     ----------
     files: list
-        list of files containing datasets (one per line)
+        list of files containing information (one per line)
 
     Returns
     -------
-    all_datasets: list
-        list of datasets
+    all_lines: list
+        list of lines from all files
     '''
-    all_datasets = []
+    all_lines = []
     for f in files:
-        with open(f,'r') as f:  all_datasets.extend(f.readlines())
-    return all_datasets
+        with open(f,'r') as f:  all_lines.extend(f.readlines())
+    return all_lines
 
 # =============================================================
 # =============== Methods for Rucio rule checking  =============

@@ -159,7 +159,7 @@ def run():
 
     if args.fromfiles is not None:
         # Get the datasets from the files
-        all_datasets = get_datasets_from_files(args.fromfiles)
+        all_datasets = get_lines_from_files(args.fromfiles)
         for ds in all_datasets:
             scope, did = ds.split(':')
             if not any(re.match(regex, did) for regex in regexes):
