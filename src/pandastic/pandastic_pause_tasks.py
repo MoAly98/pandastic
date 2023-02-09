@@ -17,16 +17,16 @@ from tools import ( draw_progress_bar, merge_dicts )
 
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================
-_h_regex                  = 'A regex in the panda *taskname* to be used to find the jobs/datasets to delete rules for'
-_h_days                   = 'The number of days in the past to look for jobs in'
-_h_users                  = 'The grid usernames under for which the jobs should be searched (often your normal name with spaces replaced by +)'
-_h_submit                 = 'Should the code submit the pausing/unpausing command'
-_h_outdir                 = 'Output directory for the output files. Default is the current directory'
-_h_fromfiles              = 'Files containing lists of tasks to pause/unpause'
-_h_unpause                = 'Unpause the tasks after deleting the rules'
-_h_pause                  = 'Which job statuses to unpause'
-_h_mincomp          = 'Minimum percentage completion for jobs that should be paused/unpaused'
-_h_maxcomp          = 'Maximum percentage completion for jobs that should be paused/unpaused'
+_h_regex      = 'A regex in the panda *taskname* to be used to find the jobs/datasets to delete rules for'
+_h_days       = 'The number of days in the past to look for jobs in'
+_h_users      = 'The grid usernames under for which the jobs should be searched (often your normal name with spaces replaced by +)'
+_h_submit     = 'Should the code submit the pausing/unpausing command'
+_h_outdir     = 'Output directory for the output files. Default is the current directory'
+_h_fromfiles  = 'Files containing lists of tasks to pause/unpause'
+_h_unpause    = 'Unpause the tasks after deleting the rules'
+_h_pause      = 'Which job statuses to unpause'
+_h_mincomp    = 'Minimum percentage completion for jobs that should be paused/unpaused'
+_h_maxcomp    =  'Maximum percentage completion for jobs that should be paused/unpaused'
 
 # ===============  Arg Parser Choices ===============================
 _choices_pause =  ['submitted', 'defined', 'activated',
