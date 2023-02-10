@@ -1,4 +1,3 @@
-from tools import (has_replica_on_rse, has_rule_on_rse, RulesAndReplicasReq,)
 from collections import defaultdict
 import re
 # =============================================================
@@ -113,7 +112,7 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, only_cont, match
             if(dstype != look_for_type):    continue
 
             # Skip if another dataset added this container (if we are saving containers)
-            if contname in datasets[scope].keys():    continue
+            if contname in datasets[scope]:    continue
 
             # Default is processing datasets
             to_process = dsname
@@ -150,10 +149,47 @@ def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, only_cont, match
 
     return datasets
 
+def skip_bc_rules_on_all_rses(ds, scope, rses, didcl):
+    '''
+    Method to filter out RSEs that already have replicas of the dataset
+
+    Parameters
+    ----------
+    ds : str
+        Name of the dataset to check
+    scope : str
+        Scope of the dataset to check
+    rses : list
+        List of RSEs to check
+    didcl : rucio.client.didclient.DIDClient
+        Rucio DID client
+
+    Returns
+    -------
+    rses : list
+        List of RSEs that don't have replicas of the dataset.  If all RSEs have replicas, returns an empty list
+    '''
+
+    rseto_to_remove =[]
+    for rse in rses:
+        ds_has_rule_on_rseto = has_rule_on_rse(ds, scope, rse, didcl)
+
+        if ds_has_rule_on_rseto:
+            print(rse)
+            print(f"WARNING: Dataset {ds} already has a rule on the RSE {rse} on which there shouldn't already be a rule. Skipping RSE...")
+            rseto_to_remove.append(rse)
+            continue
+
+    for removal in rseto_to_remove:
+        rses.remove(removal)
+
+    return rses
 
 def filter_datasets_by_existing_copies(
     datasets : 'defaultdict(set)',
     rules_and_replicas_req: RulesAndReplicasReq,
+    norule_on_allrses: list = None,
+    didcl: 'DIDClient' = None,
 ):
     '''
     Method to filter datasets based on rules and replicas requirements.
@@ -164,6 +200,10 @@ def filter_datasets_by_existing_copies(
         dict with keys as scopes and values as sets of datasets being processed
     rules_and_replicas_req: RulesAndReplicasReq
         Rules and replicas requirements
+    norule_on_allrses: list
+        List of RSEs that we don't want datasets to have a rule on all of them
+    didcl: DIDClient
+        Rucio DID client needed when norule_on_allrses is not None
 
     Returns
     -------
@@ -174,6 +214,13 @@ def filter_datasets_by_existing_copies(
     filtered_datasets = defaultdict(set)
     for scope, dses in datasets.items():
         for ds in dses:
+
+            if norule_on_allrses is not None:
+                # We check if the dataset has a rule on all the RSEs that are required to not have a rule on all of them
+                rses_to_use = skip_bc_rules_on_all_rses(ds, scope, norule_on_allrses, didcl)
+                if rses_to_use == []:
+                    print(f"WARNING: Dataset {ds} already has a rule on all the RSEs we don't want to have a rule on. Skipping replication to RSE.")
+                    continue
 
             # We check if the dataset has a rule on the RSE that is required to have a rule on it
             req_existing_rule_exists = True # Set to True by default so that if no RSEs are specified, the check passes

@@ -14,12 +14,12 @@ pbook = PBookCore.PBookCore()
 from rucio import client as rucio_client
 import rucio
 # Pandastic
-from tools import (has_replica_on_rse, has_rule_on_rse, get_rses_from_regex, RulesAndReplicasReq,
-                   dataset_size, bytes_to_best_units, progress_bar, merge_dicts)
+from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, merge_dicts )
+from common import ( get_datasets_from_jobs, filter_datasets_by_existing_copies, get_lines_from_files,
+                     get_rses_from_regex, has_replica_on_rse, has_rule_on_rse, RulesAndReplicasReq)
 
 # ===============  Rucio Clients ================
-
-rcl = rucio_client.ruleclient.RuleClient()
+rulecl = rucio_client.ruleclient.RuleClient()
 didcl = rucio_client.didclient.DIDClient()
 rsecl = rucio_client.rseclient.RSEClient()
 replicacl = rucio_client.replicaclient.ReplicaClient()
@@ -53,14 +53,14 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'cancelled', 'holding', 'transferring',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
-                      'tobekilled', 'ready', 'pending', 'exhausted']
+                      'tobekilled', 'ready', 'pending', 'exhausted', 'paused']
 def argparser():
     '''
     Method to parse the arguments for the script.
     '''
     parser = argparse.ArgumentParser("This is used to replicate datasets using RUCIO client")
     parser.add_argument('-s', '--regex',              type=str,   required=True,   nargs='+',            help=_h_regex)
-    parser.add_argument('-r', '--rseto',              type=str,   required=True,   nargs='+',            help=_h_rses)
+    parser.add_argument('-r', '--rses',              type=str,   required=True,   nargs='+',            help=_h_rses)
     parser.add_argument('-d', '--days',               type=int,   default=30,                            help=_h_days)
     parser.add_argument('-u', '--grid-user',          nargs='+',  default=[pbook.username],              help=_h_users)
     parser.add_argument('-l', '--life',               type=int,   default = 3600,                        help= _h_life)
@@ -77,163 +77,6 @@ def argparser():
     parser.add_argument('--fromfiles',                type=str,   nargs='+',                             help=_h_fromfiles)
 
     return parser.parse_args()
-
-def get_datasets_from_jobs(jobs, regexes, cont_type, did_regex, repl_cont):
-    '''
-    Method to get the datasets from the jobs.
-
-    Parameters
-    ----------
-    jobs: list
-        List of jobs to search through
-    regexes: list
-        List of regexes to match the taskname of the jobs
-    did_regex: str
-        Regex to match the dataset names
-    cont_type: str
-        Type of dataset to look for. Either 'IN' or 'OUT'
-    repl_cont: bool
-        Should the code replicate containers ? If not, individual datasets will be replicated
-
-    Returns
-    -------
-    datasets: defaultdict(set)
-        A dictionary of datasets to replicate for with keys being scope and values being a set of dataset names
-    '''
-
-    if cont_type == 'OUT':  look_for_type = 'output'
-    else:   look_for_type = 'input'
-
-    # List to hold names of DIDs to replicate
-    datasets = defaultdict(set)
-    hated_containers = set()
-    for job in jobs:
-        taskname = job.get("taskname")
-        if all(re.match(rf'{rgx}', taskname) is None for rgx in regexes):    continue
-
-        for ds in job.get("datasets"):
-
-            # Get the type of the dataset
-            dstype = ds.get("type")
-            # Skip the type of dataset we don't care about
-            if(dstype != look_for_type):  continue
-            # Skip ds if it has no files to avoid rucio headaches
-            if ds.get("nfilesfinished") < 1 : continue
-            # Get the name of the dataset
-            dsname = ds.get("datasetname")
-
-            # Get the name of the dataset parent container
-            contname = ds.get("containername")
-            # For optimisation, skip the dataset if it's in a hated container
-            # === Note datasets live in containers,
-            # multiple datasets can live in the same container ===
-            if contname in hated_containers:    continue
-
-
-            # Get the scope from the dsname
-            if ':' in dsname:
-                scope = dsname.split(':')[0]
-            else:
-                scope = '.'.join(dsname.split('.')[:2])
-
-            if not repl_cont:
-                # Check if the dataset name matches the DID regex
-                if did_regex is not None:
-                    # Skip the dataset if it doesn't match the DID regex
-                    if re.match(did_regex, dsname) is None: continue
-                # If we are not replicating containers, add the dataset
-                datasets[scope].add(dsname)
-            else:
-                # Check if the dataset name matches the DID regex
-                if did_regex is not None:
-                    # Skip the dataset if the container doesn't match the DID regex
-                    if re.match(did_regex, contname) is None:
-                        hated_containers.add(contname)
-                        continue
-
-                # If we are replicating containers, add the container
-                datasets[scope].add(contname)
-
-    return datasets
-
-def filter_datasets_to_replicate(
-    datasets : defaultdict(set),
-    rseto: str,
-    rules_and_replicas_req: RulesAndReplicasReq,
-):
-    '''
-    Method to filter the datasets to replicate based on the rules and replicas requirements.
-
-    Parameters
-    ----------
-    datasets: defaultdict(set)
-        Dict with keys as scopes and values as sets of datasets to replicate
-    rseto: str
-        RSE to replicate to
-    rules_and_replicas_req: RulesAndReplicasReq
-        Rules and replicas requirements
-
-    Returns
-    -------
-    filtered_datasets: list
-        Dict with keys as scopes and values as sets of datasets to replicate
-    '''
-
-    filtered_datasets = defaultdict(set)
-    for scope, dses in datasets.items():
-        for ds in dses:
-
-            # First need to check if thee dataset has a rule on the RSE we want to replicate to
-            rseto_to_remove =[]
-            for rse in rseto:
-                ds_has_rule_on_rseto = has_rule_on_rse(ds, scope, rse, didcl)
-
-                if ds_has_rule_on_rseto:
-                    print(f"WARNING: Dataset {ds} already has a rule on the RSE {rse} we want to replicate to. Skipping replication to RSE.")
-                    rseto_to_remove.append(rse)
-                    continue
-
-            for removal in rseto_to_remove:
-                rseto.remove(removal)
-
-            if rseto == []:
-                print(f"WARNING: Dataset {ds} already has a rule on all the RSEs we want to replicate to. Skipping dataset.")
-                continue
-
-            # Now we check if the dataset has a rule on the RSE that is required to have a rule on it
-
-            req_existing_rule_exists = True # Set to True by default so that if no RSEs are specified, the check passes
-            if rules_and_replicas_req.rule_on_rse is not None:
-                # Set to False so that if RSEs are specified, and none of them have a rule, the check fails
-                req_existing_rule_exists = False
-                for rse in rules_and_replicas_req.rule_on_rse:
-                    req_existing_rule_exists = has_rule_on_rse(ds, scope, rse, didcl)
-                    if req_existing_rule_exists: break
-
-            # Now we check if the dataset has a replica on the RSE that is required to have a replica on it
-
-            req_existing_replica_exists = True # Set to True by default so that if no RSEs are specified, the check passes
-            if rules_and_replicas_req.replica_on_rse is not None:
-                # Set to False so that if RSEs are specified, and none of them have a replica, the check fails
-                req_existing_replica_exists = False
-                for rse in rules_and_replicas_req.replica_on_rse:
-                    req_existing_replica_exists = has_replica_on_rse(ds, scope, rse, replicacl)
-                    if req_existing_replica_exists: break
-
-            # If user is asking for either a rule or a replica but necessarily both, then we check if either exists
-            if rules_and_replicas_req.rule_or_replica_on_rse:
-                if not (req_existing_rule_exists or req_existing_replica_exists):
-                    print(f"WARNING: Dataset {ds} does not satisfy existing rules and replicas requirements. Skipping.")
-                    continue
-            # If user is asking for both a rule and a replica, then we check if both exist
-            else:
-                if not (req_existing_rule_exists and req_existing_replica_exists):
-                    print(f"WARNING: Dataset {ds} does not satisfy existing rules and replicas requirements. Skipping.")
-                    continue
-
-            filtered_datasets[scope].add(ds)
-
-    return filtered_datasets
 
 def add_rule(ds, rse, lifetime, scope):
     '''
@@ -257,7 +100,7 @@ def add_rule(ds, rse, lifetime, scope):
     '''
 
     try:
-        rule = rcl.add_replication_rule([{'scope':scope, 'name': ds.replace('/','')}], 1, rse_expression, lifetime = lifetime)
+        rule = rulecl.add_replication_rule([{'scope':scope, 'name': ds.replace('/','')}], 1, rse_expression, lifetime = lifetime)
         print(f'INFO:: DS = {ds} \n RuleID: {rule[0]}')
         return rule[0]
 
@@ -268,27 +111,6 @@ def add_rule(ds, rse, lifetime, scope):
     except rucio.common.exception.ReplicationRuleCreationTemporaryFailed as tfe:
         print(f"WARNING:: Duplication not currently possible for \n {ds} \n to {rse_expression} ...  skipping, try again later!")
         return None
-
-def get_datasets_from_files(files):
-    '''
-    Method to get the datasets from a list of files
-
-    Parameters
-    ----------
-    files: list
-        list of files containing datasets
-
-    Returns
-    -------
-    all_datasets: list
-        list of datasets
-    '''
-    all_datasets = []
-    for f in files:
-        with open(f,'r') as f:
-            datasets = f.readlines()
-        all_datasets.extend(datasets)
-    return all_datasets
 
 def run():
     '''
@@ -318,7 +140,7 @@ def run():
     # Get the RSEs to replicate to from available RSEs using regexes (if any)
     rses_to_replicate_to = set()
 
-    for rse in args.rseto:
+    for rse in args.rses:
         rses_to_replicate_to |= get_rses_from_regex(rse, rsecl)
 
     assert len(rses_to_replicate_to) > 0, "No RSEs found to replicate to. Exiting."
@@ -327,14 +149,14 @@ def run():
 
     if args.fromfiles is not None:
         # Get the datasets from the files
-        all_datasets = get_datasets_from_files(args.fromfiles)
+        all_datasets = get_lines_from_files(args.fromfiles)
         for ds in all_datasets:
             scope, did = ds.split(':')
             if not any(re.match(regex, did) for regex in regexes):
                 continue
             to_repl[scope].add(did.strip())
 
-    if usetasks is not None:
+    elif usetasks is not None:
 
         # ===========
         # If we are using PanDA tasks, get the datasets from the tasks
@@ -367,83 +189,100 @@ def run():
         # =============
         # If no association with PanDA tasks, just use the regexes over all rucio datasets in given scopes
         # =============
-
+        # ==================================================== #
+        # Warn user about useless args
+        # ==================================================== #
         if args.grid_user != pbook.username:
             print("WARNING:: You are not using --usetask, so --grid_user is useless. Ignoring --grid_user")
-
         if args.days is not None:
             print("WARNING:: You are not using --usetask, so --days is useless. Ignoring --days")
         if args.type is not None:
             print("WARNING:: You are not using --usetask, so --type is useless. Ignoring --type")
         if args.did is not None:
             print("WARNING:: You are not using --usetask, so --did is useless. Ignoring --did")
+        # ==================================================== #
 
         # if --usetask is not used, the scopes must be specified
         assert scopes is not None, "ERROR:: --scopes must be specified if --usetask is not used"
 
-        dids = list(didcl.list_dids(scope, {'name': regex.replace('.*','*').replace('/','')}))
-        # Progress Bar
-        progress_bar(len(dids), 0)
-        for i, did in enumerate(dids):
+        for scope in scopes:
+            print("INFO:: Looking for datasets in scope", scope, "matching regexes")
+            for regex in regexes:
+                print("INFO:: Looking for datasets matching regex", regex)
+                dids = list(didcl.list_dids(scope, {'name': regex.replace('.*','*').replace('/','')}))
 
-            # Progresss Bar
-            if(len(dids) > 100):
-                if (i+1)%100 == 0: progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
-            elif len(dids) > 10 and len(dids) <= 100:
-                if (i+1)%10 == 0:  progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
-            else:
-                progress_bar(len(dids), i+1, msg=f'Progress for collecting dids matching regex {regex}')
+                if len(dids) == 0:
+                    print("WARNING:: No datasets found matching regex", regex)
+                    continue
 
-            # Fast track -- skip datasets with rules on all of the regexed rses we replicate to
-            if not all(has_rule_on_rse(did, scope, rse, didcl) for rse in args.rseto):
-                continue
+                for i, did in enumerate(dids):
 
-            did_type = didcl.get_metadata(scope, did.replace('/','')).get('did_type')
-            if only_cont and did_type != 'CONTAINER': continue
-            elif not only_cont and did_type != 'DATASET': continue
-            to_repl[scope].add(did)
+                    # ============ Progresss Bar ============= #
+                    draw_progress_bar(len(dids), i, f'Progress for collecting dids matching regex {regex}')
+
+                    did_type = didcl.get_metadata(scope, did.replace('/','')).get('did_type')
+                    if only_cont and did_type != 'CONTAINER': continue
+                    elif not only_cont and did_type != 'DATASET': continue
+                    to_repl[scope].add(did)
 
     # Filter the datasets to replicate based on the existing copies
-    to_repl = filter_datasets_to_replicate(to_repl, args.rseto, existing_copies_req)
+    to_repl = filter_datasets_by_existing_copies(to_repl, existing_copies_req, norule_on_allrses=args.rses, didcl=didcl)
 
-    print("INFO:: EXPECTED NUMBER OF DATASETS TO REPLICATE: ", len(to_repl))
-
-    # === Replicate the datasets === #
+    # ==================================================== #
+    # ================= Delete the datasets ============== #
+    # ==================================================== #
     # Keep track of the replications (what, where, ruleid)
     actual_replication_summary = defaultdict(lambda: defaultdict(dict))
 
     now = datetime.now().strftime("%Y%m%d_%H%M%S")
     nreplicated, totalsize_repl = 0, 0
-    # Write the ruleids to a file so we can monitor the deletions
+
+    # Prepare output files for monitoring
     dids_monit_file = open(f'{outdir}/monit_replication_dids_{now}.txt', 'w')
     ruleid_monit_file = open(f'{outdir}/monit_replication_ruleids_{now}.txt', 'w')
+
+    # Loop over the scopes
     for scope, dids in to_repl.items():
+        # Loop over the datasets in scope
         for did in dids:
 
+            # Try to get the size of the dataset, use as proxy to skip datasets
+            # found from a task but not existing on Rucio...
             try:
                 totalsize_repl += dataset_size(did, scope, didcl)
             except rucio.common.exception.DataIdentifierNotFound:
                 print("WARNING:: Dataset not found in Rucio: ", did, "Skipping...")
                 continue
 
+            # Loop over the RSEs to replicate to
             for rse in rses_to_replicate_to:
+
+                # Tell the user what we are doing
                 print("INFO:: Replicating rules for dataset: ", did)
                 print("INFO:: Replicating to RSE: ", rse)
                 # Only really add the rule if --submit is used
                 if args.submit:
                     ruleid = add_rule(did, rse, args.lifetime, scope)
-                    ruleid_monit_file.write(ruleid+'\n')
                 else:
                     ruleid = 'NOT_SUBMITTED'
 
-                actual_replication_summary[did][rse]['ruleid'] = ruleid
-                dids_monit_file.write(f"{scope}:{did}\n")
 
+                # Write to monitoring scripts
+                dids_monit_file.write(f"{scope}:{did}\n")
+                ruleid_monit_file.write(ruleid+'\n')
+                # Keep track of number of rule deletions
                 nreplicated += 1
+                # Keep track of what we replicated exactly
+                actual_replication_summary[did][rse]['ruleid'] = ruleid
 
     dids_monit_file.close()
     ruleid_monit_file.close()
 
+    # Dump the replication summary to a json file
+    with open(f'{outdir}/datasets_to_replicate_{now}.json', 'w') as f:
+        json.dump(actual_replication_summary, f, indent=4)
+
+    # Summarise to user
     print("INFO:: TOTAL NUMBER OF DATASET RULES TO CREATE: ", nreplicated)
     good_units_size = bytes_to_best_units(totalsize_repl)
     print("INFO:: TOTAL Size OF DATASETS TO REPLICATE: ", good_units_size[0], good_units_size[1])
@@ -453,8 +292,6 @@ def run():
         print("INFO:: --submit not used, so not replicating. Deleting ruleid monit file")
         os.unlink(f'{outdir}/monit_replication_ruleids_{now}.txt')
 
-    # Dump the replication summary to a json file
-    with open(f'{outdir}/datasets_to_replicate_{now}.json', 'w') as f:
-        json.dump(actual_replication_summary, f, indent=4)
+
 
 if __name__ == "__main__":  run()
