@@ -15,7 +15,7 @@ from rucio import client as rucio_client
 import rucio
 # Pandastic
 from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, merge_dicts )
-from common import ( get_datasets_from_jobs, filter_datasets_by_existing_copies, get_datasets_from_files,
+from common import ( get_datasets_from_jobs, filter_datasets_by_existing_copies, get_lines_from_files,
                      get_rses_from_regex, has_replica_on_rse, has_rule_on_rse, RulesAndReplicasReq)
 
 # ===============  Rucio Clients ================
@@ -154,6 +154,8 @@ def run():
     rses_to_delete_from = set()
     for rse in args.rses:
         rses_to_delete_from |= get_rses_from_regex(rse, rsecl)
+
+    assert len(rses_to_delete_from) > 0, "No RSEs found matching your RSE regex to delete rules from. Exiting."
 
     to_delete = defaultdict(set)
 
