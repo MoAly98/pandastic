@@ -1,6 +1,7 @@
 # Required Imports
 # System
 import sys, os, json, re
+sys.path.insert(0,'/cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/PandaClient/1.5.33/lib/python3.6/site-packages/')
 import json
 import argparse
 from datetime import datetime
@@ -9,6 +10,8 @@ from collections import defaultdict
 # PanDA: /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/PandaClient/1.5.9/lib/python3.6/site-packages/pandaclient/PBookCore.py
 from pandaclient import PBookCore
 from pandaclient import queryPandaMonUtils
+import pandaclient.Client as Client
+
 pbook = PBookCore.PBookCore()
 
 # Pandastic
@@ -148,7 +151,7 @@ def run():
             print(f"INFO:: {action} the task {taskname} which is  {percentage_done} % complete")
 
             # Only really add the rule if --submit is used
-            if args.submit and unpause: pbook.execute_workflow_command('resume', request_id)
+            if args.submit and unpause: Client.resumeTask(taskid) # pbook.execute_workflow_command('resume', request_id)
             if args.submit and not unpause: pbook.execute_workflow_command('suspend', request_id)
 
             # Write to monitoring scripts
