@@ -33,7 +33,6 @@ class DatasetHandler(object):
                  rses: str,
                  rules_replica_req: RulesAndReplicasReq,
                  containers: bool = False,
-                 matchfiles: bool = False,
                  # FROM FILES
                  fromfiles: str = None):
 
@@ -41,13 +40,23 @@ class DatasetHandler(object):
         self.rses = rses
         self.only_cont = containers
         self.rules_replica_req = rules_replica_req
-        self.matchfiles = matchfiles
         self.fromfiles = fromfiles
 
         self.rulecl = rucio_client.ruleclient.RuleClient()
         self.didcl = rucio_client.didclient.DIDClient()
         self.rsecl = rucio_client.rseclient.RSEClient()
         self.replicacl = rucio_client.replicaclient.ReplicaClient()
+
+    def PrintSummary(self):
+        print(f'===================================')
+        print(f'Summary of DatasetHandler object:')
+        print(f'===================================')
+        print(f'Method of extracting datasets: from files')
+        print(f'Regexes used to filter the files: {self.regexes}')
+        print(f'RSEs considred for action: {self.rses}')
+        print(f'Only consider containers: {self.only_cont}')
+        print(f'Rules and replicas requirements: {self.rules_replica_req}')
+        print(f'===================================')
 
     def GetDatasets(self):
         datasets = defaultdict(set)
@@ -170,14 +179,33 @@ class PandaDatasetHandler(DatasetHandler):
                  days: int = 30,
                  users: list = [pbook.username],
                  did: str = None,
+                 matchfiles: bool = False,
                  **kwargs):
 
         super().__init__(**kwargs)
+        self.matchfiles = matchfiles
         self.days = days
         self.panda_users = users
         self.type = ds_type
         self.did = did
         self.usetasks = usetasks
+
+    def PrintSummary(self):
+        print(f'===================================')
+        print(f'Summary of DatasetHandler object:')
+        print(f'===================================')
+        print(f'Method of extracting datasets: PanDA')
+        print(f'Regexes used to filter the datasets: {self.regexes}')
+        print(f'RSEs considred for action: {self.rses}')
+        print(f'Only consider containers: {self.only_cont}')
+        print(f'Rules and replicas requirements: {self.rules_replica_req}')
+        print(f'Task inpit and output file count must match: {self.matchfiles}')
+        print(f'PanDA users to consider: {self.panda_users}')
+        print(f'PanDA tasks to consider: {self.usetasks}')
+        print(f'PanDA days to consider: {self.days}')
+        print(f'PanDA dataset type to consider: {self.type}')
+        print(f'PanDA dataset DID regex to consider: {self.did}')
+        print(f'===================================')
 
     def GetDatasetsFromTasks(self, tasks):
         '''
@@ -373,6 +401,22 @@ class RucioDatasetHandler(DatasetHandler):
                     datasets[scope].add(did)
 
         return datasets
+    def PrintSummary(self):
+        print(f'===================================')
+        print(f'Summary of DatasetHandler object:')
+        print(f'===================================')
+        print(f'Method of extracting datasets: PanDA')
+        print(f'Regexes used to filter the datasets: {self.regexes}')
+        print(f'RSEs considred for action: {self.rses}')
+        print(f'Only consider containers: {self.only_cont}')
+        print(f'Rules and replicas requirements: {self.rules_replica_req}')
+        print(f'Task inpit and output file count must match: {self.matchfiles}')
+        print(f'PanDA users to consider: {self.panda_users}')
+        print(f'PanDA tasks to consider: {self.usetasks}')
+        print(f'PanDA days to consider: {self.days}')
+        print(f'PanDA dataset type to consider: {self.type}')
+        print(f'PanDA dataset DID regex to consider: {self.did}')
+        print(f'===================================')
 
 
 
