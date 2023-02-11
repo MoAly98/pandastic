@@ -13,9 +13,9 @@ from pandaclient import queryPandaMonUtils
 pbook = PBookCore.PBookCore()
 # Pandastic
 from tools import ( draw_progress_bar )
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
-
+# ===============  Arg Parser Help ===============================
 _h_regexes   = 'A regex/pattern in the taskname to be used to find the jobs to retry'
 _h_days      = 'How many days in the past should we look for the jobs?'
 _h_user      = 'By default the tasks for the current user are the ones that will be queried. Use this option to query other users.'

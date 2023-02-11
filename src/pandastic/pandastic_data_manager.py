@@ -31,6 +31,9 @@ rulecl = rucio_client.ruleclient.RuleClient()
 didcl = rucio_client.didclient.DIDClient()
 rsecl = rucio_client.rseclient.RSEClient()
 replicacl = rucio_client.replicaclient.ReplicaClient()
+downloadcl = downloadclient.DownloadClient()
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================
@@ -273,7 +276,15 @@ def run():
                     print("WARNING:: No rules to update for dataset: ", did)
                     continue
             else:
-                ''' Some code to download stuff'''
+                items = {'did': did, 'base_dir': outdir}
+                if rses is not None:
+                    if len(rses) == 1:
+                        items = {'did': cont, 'base_dir': outdir, 'rse': rses[0]}
+                    else:
+                        print("WARNING:: More than one RSE specified for download is invalid... not using any RSEs")
+
+                try:    downloadcl.download_dids(items)
+                except excep.NotAllFilesDownloaded as e:    raise str(e)
 
 
     dids_monit_file.close()
