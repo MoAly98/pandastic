@@ -31,7 +31,7 @@ class DatasetHandler(object):
                  *,
                  regexes: str,
                  rses: str,
-                 rules_replica_req: RulesAndReplicasReq,
+                 rules_replica_req: RulesAndReplicasReq = None,
                  containers: bool = False,
                  # FROM FILES
                  fromfiles: str = None):

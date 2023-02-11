@@ -1,10 +1,15 @@
+'''
+This module is a dataset manager which links PanDA and Rucio. It's functionality is to
+delete, update, replicate rules for datasets that t he user specifies. It can also download
+datasets. The user can extract the datasets to be processed either from a PanDA job report
+or from a Rucio dataset list or from simply providing a list of datasets in a file.
+'''
+
 # Required Imports
 # System
-import sys, os, json, re
-import json
+import os, json, re
 import argparse
 from datetime import datetime
-from pprint import pprint
 from collections import defaultdict
 # PanDA: /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/PandaClient/1.5.9/lib/python3.6/site-packages/pandaclient/PBookCore.py
 from pandaclient import PBookCore
@@ -29,6 +34,7 @@ replicacl = rucio_client.replicaclient.ReplicaClient()
 
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================
+_h_action                 = 'The action to perform on the datasets'
 _h_regex                  = 'A regex in the panda *taskname* to be used to find the jobs to replicate datasets from'
 _h_rses                   =  'The RSEs to process to (create rules there)'
 _h_rule_on_rse            = 'List of RSEs that the DID must have rule on *any* of them before we process it'
@@ -58,12 +64,13 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused']
+_action_choices  = ['replicate', 'delete', 'update', 'download']
 def argparser():
     '''
     Method to parse the arguments for the script.
     '''
     parser = argparse.ArgumentParser("This is used to process datasets using RUCIO client")
-    parser.add_argument('action',                     type=str,   choices=['replicate', 'delete', 'update', 'download'], help='Action to perform')
+    parser.add_argument('action',                     type=str,   choices=_action_choices,               help=_h_action)
     parser.add_argument('-s', '--regex',              type=str,   required=True,   nargs='+',            help=_h_regex)
     parser.add_argument('-r', '--rses',               type=str,   nargs='+',                             help=_h_rses)
     parser.add_argument('-d', '--days',               type=int,   default=30,                            help=_h_days)
