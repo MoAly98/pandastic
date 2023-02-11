@@ -14,9 +14,8 @@ pbook = PBookCore.PBookCore()
 from rucio import client as rucio_client
 import rucio
 # Pandastic
-from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, merge_dicts )
-from common import ( get_datasets_from_jobs, filter_datasets_by_existing_copies, get_lines_from_files,
-                     get_rses_from_regex, has_replica_on_rse, has_rule_on_rse, RulesAndReplicasReq)
+from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, merge_dicts, get_lines_from_files)
+from common import ( get_rses_from_regex, has_replica_on_rse, has_rule_on_rse, RulesAndReplicasReq )
 
 # ===============  Rucio Clients ================
 rulecl = rucio_client.ruleclient.RuleClient()
@@ -60,7 +59,7 @@ def argparser():
     '''
     parser = argparse.ArgumentParser("This is used to replicate datasets using RUCIO client")
     parser.add_argument('-s', '--regex',              type=str,   required=True,   nargs='+',            help=_h_regex)
-    parser.add_argument('-r', '--rses',              type=str,   required=True,   nargs='+',            help=_h_rses)
+    parser.add_argument('-r', '--rses',               type=str,    required=True,   nargs='+',            help=_h_rses)
     parser.add_argument('-d', '--days',               type=int,   default=30,                            help=_h_days)
     parser.add_argument('-u', '--grid-user',          nargs='+',  default=[pbook.username],              help=_h_users)
     parser.add_argument('-l', '--life',               type=int,   default = 3600,                        help= _h_life)

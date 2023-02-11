@@ -237,6 +237,21 @@ def draw_progress_bar(numitems, current_item, msg = 'Progress'):
     else:
         progress_bar(numitems, current_item+1, msg=msg)
 
+def get_lines_from_files(files):
+    '''
+    Method to get the lines from a list of files in one list
 
+    Parameters
+    ----------
+    files: list
+        list of files containing information (one per line)
 
-
+    Returns
+    -------
+    all_lines: list
+        list of lines from all files
+    '''
+    all_lines = []
+    for f in files:
+        with open(f,'r') as f:  all_lines.extend(f.readlines())
+    return all_lines
