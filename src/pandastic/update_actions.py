@@ -58,8 +58,9 @@ def update_rule(ruleid, lifetime, rulecl):
     ruleid: str
         The rule ID if the rule was successfully updated, else None
     '''
+
     try:
-        rulecl.update_replication_rule(rule_id, {'lifetime': lifetime})
+        rulecl.update_replication_rule(ruleid, {'lifetime': lifetime})
         return True
     except:
         print(f"WARNING:: Rule update failed for rule ID {ruleid} ...  skipping!")

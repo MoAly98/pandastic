@@ -7,7 +7,7 @@ or from a Rucio dataset list or from simply providing a list of datasets in a fi
 
 # Required Imports
 # System
-import os, json, re
+import os, json, re, urllib3
 import argparse
 from datetime import datetime
 from collections import defaultdict
@@ -18,6 +18,8 @@ pbook = PBookCore.PBookCore()
 # Rucio
 from rucio import client as rucio_client
 import rucio
+import rucio.client.downloadclient as downloadclient
+
 # Pandastic
 from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar )
 from common import (  get_rses_from_regex, RulesAndReplicasReq)
@@ -27,11 +29,13 @@ from update_actions import ( get_ruleids_to_update, update_rule )
 from dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
 
 # ===============  Rucio Clients ================
-rulecl = rucio_client.ruleclient.RuleClient()
-didcl = rucio_client.didclient.DIDClient()
-rsecl = rucio_client.rseclient.RSEClient()
-replicacl = rucio_client.replicaclient.ReplicaClient()
+rulecl     = rucio_client.ruleclient.RuleClient()
+didcl      = rucio_client.didclient.DIDClient()
+rsecl      = rucio_client.rseclient.RSEClient()
+replicacl  = rucio_client.replicaclient.ReplicaClient()
+
 downloadcl = downloadclient.DownloadClient()
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -58,7 +62,8 @@ _h_outdir                 = 'Output directory for the output files. Default is t
 _h_fromfiles              = 'Files containing lists of datasets to process \n \
                              If this is used, only --regex, --rses, --submit, --outdir arguments are used as well.\n\
                              The regex will be used to filter the datasets, and rses will be used get datasets to process'
-
+_h_cont_rule_req          = 'If a container has a rule on a given RSE, should we process the datasets in it?\
+                             This is used when applying the filter using existing rules/replicas.'
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'assigned', 'starting', 'running',
@@ -66,8 +71,10 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'cancelled', 'holding', 'transferring',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
-                      'tobekilled', 'ready', 'pending', 'exhausted', 'paused']
+                      'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
+                      'broken']
 _action_choices  = ['replicate', 'delete', 'update', 'download']
+
 def argparser():
     '''
     Method to parse the arguments for the script.
@@ -84,7 +91,8 @@ def argparser():
     parser.add_argument('--rule_on_rse',              nargs='+',                                         help=_h_rule_on_rse)
     parser.add_argument('--replica_on_rse',           nargs='+',                                         help=_h_replica_on_rse)
     parser.add_argument('--rule_or_replica_on_rse',   action='store_true',                               help=_h_rule_or_replica_on_rse)
-    parser.add_argument('--usetask',                  nargs='+', choices = _choices_usetasks,            help=_h_usetask)
+    parser.add_argument('--contrulereq',              action='store_true',                               help=_h_cont_rule_req)
+    parser.add_argument('--usetasks',                 nargs='+', choices = _choices_usetasks,            help=_h_usetask)
     parser.add_argument('--type',                     type=str,   choices=['OUT','IN'],                  help=_h_type)
     parser.add_argument('--containers',               action='store_true',                               help=_h_containers)
     parser.add_argument('--matchfiles',               action='store_true',                               help=_h_matchfiles)
@@ -122,11 +130,12 @@ def run():
     submit     = args.submit
     existing_copies_req = RulesAndReplicasReq(args.rule_on_rse,
                                               args.replica_on_rse,
-                                              args.rule_or_replica_on_rse)
+                                              args.rule_or_replica_on_rse,
+                                              args.contrulereq)
 
     # Workout how the datasets to be processed will be retrived
     fromfiles = args.fromfiles
-    usetasks  = '|'.join(args.usetask) if args.usetask is not None else None
+    usetasks  = '|'.join(args.usetasks) if args.usetasks is not None else None
 
     if fromfiles is not None and usetasks is not None:
         print("ERROR: Cannot specify both --usetask and --fromfiles. Exiting.")
@@ -283,7 +292,7 @@ def run():
                     else:
                         print("WARNING:: More than one RSE specified for download is invalid... not using any RSEs")
 
-                try:    downloadcl.download_dids(items)
+                try:    downloadcl.download_dids([items])
                 except excep.NotAllFilesDownloaded as e:    raise str(e)
 
 

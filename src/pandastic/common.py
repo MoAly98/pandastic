@@ -7,15 +7,16 @@ class RulesAndReplicasReq:
     '''
     Class to hold the rules and replicas requirements.
     '''
-    def __init__(self, rule_on_rse, replica_on_rse, rule_or_replica_on_rse):
+    def __init__(self, rule_on_rse, replica_on_rse, rule_or_replica_on_rse, cont_rule_req):
         self.rule_on_rse = rule_on_rse
         self.replica_on_rse = replica_on_rse
         self.rule_or_replica_on_rse = rule_or_replica_on_rse
+        self.cont_rule_req = cont_rule_req
 
     def __repr__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
+        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse}, cont_rule_req={self.cont_rule_req})"
     def __str__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse})"
+        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse}, cont_rule_req={self.cont_rule_req})"
 
 # =============================================================
 # =============== Methods for Rucio rule checking  =============
