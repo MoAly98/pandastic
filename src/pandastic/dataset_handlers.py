@@ -101,6 +101,13 @@ class DatasetHandler(object):
                     if rses_to_use == []:
                         print(f"WARNING: Dataset {ds} already has a rule on all the RSEs we don't want to have a rule on. Skipping replication to RSE.")
                         continue
+                try:
+                    ds_type = self.didcl.get_metadata(scope, ds.replace('/','')).get('did_type')
+                    parent  = next(self.didcl.list_parent_dids(scope, ds.replace('/',''))).get('name')
+
+                except rucio.common.exception.DataIdentifierNotFound:
+                    print(f"WARNING: Dataset {ds} not found on Rucio. Skipping.")
+                    continue
 
                 # We check if the dataset has a rule on the RSE that is required to have a rule on it
                 req_existing_rule_exists = True # Set to True by default so that if no RSEs are specified, the check passes
@@ -108,7 +115,15 @@ class DatasetHandler(object):
                     # Set to False so that if RSEs are specified, and none of them have a rule, the check fails
                     req_existing_rule_exists = False
                     for rse in rules_and_replicas_req.rule_on_rse:
-                        req_existing_rule_exists = has_rule_on_rse(ds, scope, rse, self.didcl)
+                        req_existing_rule_exists_ds = has_rule_on_rse(ds, scope, rse, self.didcl)
+
+                        # Can a parent container satisfy the condition?
+                        req_existing_rule_exists_parent = False
+                        if rules_and_replicas_req.cont_rule_req and parent is not None and ds_type == 'DATASET':
+                            req_existing_rule_exists_parent = has_rule_on_rse(parent, scope, rse, self.didcl)
+
+                        req_existing_rule_exists = req_existing_rule_exists_ds or req_existing_rule_exists_parent
+
                         if req_existing_rule_exists: break
 
                 # We check if the dataset has a replica on the RSE that is required to have a replica on it
@@ -118,7 +133,14 @@ class DatasetHandler(object):
                     # Set to False so that if RSEs are specified, and none of them have a replica, the check fails
                     req_existing_replica_exists = False
                     for rse in rules_and_replicas_req.replica_on_rse:
-                        req_existing_replica_exists = has_replica_on_rse(ds, scope, rse, replicacl)
+                        req_existing_replica_exists_ds = has_replica_on_rse(ds, scope, rse, self.replicacl)
+                        # Can a parent container satisfy the condition?
+                        req_existing_replica_exists_parent = False
+                        if rules_and_replicas_req.cont_rule_req and parent is not None and ds_type == 'DATASET':
+                            req_existing_replica_exists_parent = has_replica_on_rse(parent, scope, rse, self.replicacl)
+
+                        req_existing_replica_exists = req_existing_replica_exists_ds or req_existing_replica_exists_parent
+
                         if req_existing_replica_exists: break
 
                 # If user is asking for either a rule or a replica but necessarily both, then we check if either exists
@@ -247,6 +269,7 @@ class PandaDatasetHandler(DatasetHandler):
         # SET of containers we don't want to process
         hated_containers = set()
 
+        ntasks = 0
         # Loop over the jobs
         for i, task in enumerate(tasks):
 
@@ -317,6 +340,9 @@ class PandaDatasetHandler(DatasetHandler):
                 task_to_saved_ds[scope][taskname].append(to_process)
                 # Save the dataset/container to the map from scopes to datasets to process
                 datasets[scope].add(to_process)
+            # Increment the number of tasks we've processed
+            ntasks += 1
+        print(f"INFO:: Retrieved datasets from {ntasks} tasks..")
 
         # Process information on number of input and output files for each task and remove
         # datasets associated with tasks that have different number of input and output files
