@@ -24,7 +24,7 @@ def dataset_size(ds, scope, didclient):
 
     return totalsize
 
-def bytes_to_best_units(ds_size):
+def bytes_to_best_units(ds_size, ensure=None):
     '''
     Method to convert bytes to the best units for display.
     This is done by dividing the size by 1e3, 1e6, or 1e9 depending on the size.
@@ -40,6 +40,17 @@ def bytes_to_best_units(ds_size):
     (ds_size, units): tuple
         The size of the dataset in the best units and the units as a string
     '''
+    if ensure is not None:
+        if ensure == 'GB':
+            ds_size/=1e9
+            return (ds_size, 'GB')
+        elif ensure == 'TB':
+            ds_size/=1e12
+            return (ds_size, 'TB')
+        else:
+            ds_size/=1e6
+            return (ds_size, 'MB')
+
     if ds_size > 1e3 and ds_size < 1e5:
         ds_size/=1e9
         return (ds_size, 'GB')

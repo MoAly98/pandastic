@@ -24,32 +24,16 @@ replicacl = rucio_client.replicaclient.ReplicaClient()
 acccl     = rucio_client.accountclient.AccountClient()
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================
-_h_regex                  = 'A regex in the panda *taskname* to be used to find the jobs to replicate datasets from'
-_h_rses                   =  'The RSEs to process to (create rules there)'
-_h_scopes                 = 'Scopes to look for the DIDs in if --usetask is not used'
-_h_users                  = 'The grid usernames under for which the jobs should be searched (often your normal name with spaces replaced by +)'
+_h_regex                  = 'A regex in the rucio dataset/container name to be used to find the datasets'
+_h_rses                   =  'The RSEs to get reports for'
+_h_scopes                 = 'Scopes to look for the DIDs'
+_h_users                  = 'The rucio usernames under for which the datasets should be searched'
 _h_outdir                 = 'Output directory for the output files. Default is the current directory'
-
-
-
-_h_rule_on_rse            = 'List of RSEs that the DID must have rule on *any* of them before we process it'
-_h_replica_on_rse         = 'List of RSEs that the DID must have replica on *any* of them before we process it'
-_h_rule_or_replica_on_rse = 'Use if both replica_on_rse and rule_on_rse are used, to specify that if either are satisfied, replication will happen.\
-                             Not using this means both must be satified satisfied'
-_h_type                   = 'Type of dataset being processd .. is it the task input or output?'
-_h_days                   = 'The number of days in the past to look for jobs in'
-_h_life                   = 'How long is should the lifetime of the dataset be on its destination RSE'
-_h_did                    = 'Subset of the jobs following the pattern to keep'
-_h_submit                 = 'Should the code submit the replication jobs? Default is to run dry'
-_h_usetask                = 'Should the regex be used to filter PanDA jobs? Specify task statuses to look for here'
-_h_containers             = 'Should the code only process containers? Default is to process individual datasets. DID regex will be used to match the container name.'
-_h_matchfiles             = 'Strict requirment when finding datasets from PanDA tasks that input and output number of files match for a given task before we delete rules of containers/datasets associated with it'
-_h_fromfiles              = 'Files containing lists of datasets to process \n \
-                             If this is used, only --regex, --rses, --submit, --outdir arguments are used as well.\n\
-                             The regex will be used to filter the datasets, and rses will be used get datasets to process'
 _h_gsummary               = 'Get a general summary of RSE usage for the user'
+_h_breakdown              = 'Get an extensive summary about datasets using the space on the RSEs'
 _h_tags                   = 'To get a breakdown of the space used by different regexes, specify them here'
-_h_containers             = 'Should the code only process containers? Default is to process individual datasets. DID regex will be used to match the container name.'
+_h_containers             = 'Should the code only process containers? Default is to process individual datasets.\
+                             DID regex will be used to match the container name.'
 
 
 def argparser():
@@ -62,7 +46,8 @@ def argparser():
     parser.add_argument('--scopes',        type=str, required=True, nargs='+',  help=_h_scopes)
     parser.add_argument('-u', '--usrs',    nargs='+', default=[RUCIO_USER],     help=_h_users)
     parser.add_argument('--outdir',        type=str,   default='./',            help=_h_outdir)
-    parser.add_argument('--gsummary',      action='store_true',                 help=_h_rule_on_rse)
+    parser.add_argument('--gsummary',      action='store_true',                 help=_h_gsummary)
+    parser.add_argument('--breakdown',     action='store_true',                 help=_h_breakdown)
     parser.add_argument('--containers',    action='store_true',                 help=_h_containers)
     parser.add_argument('-t', '--tags',    type=str, nargs='+',                 help=_h_tags)
 
@@ -74,7 +59,7 @@ def get_account_limits(usr):
     """
     disk_type_to_acc_limit = {}
     for disktype, info in acccl.get_global_account_limits(usr).items():
-        size, units = bytes_to_best_units(info['limit'])
+        size, units = bytes_to_best_units(info['limit'], ensure='TB')
         disk_type_to_acc_limit[disktype.replace('type=','')] = (size, units)
     return disk_type_to_acc_limit
 
@@ -87,8 +72,9 @@ def run():
     regexes   = args.regexes
     scopes    = args.scopes
     rses      = args.rses
-    tags      = args.tags
+    tags      = args.tags if args.tags is not None else []
     rse_info  = args.gsummary
+    breakdown = args.breakdown
     only_cont = args.containers
     outdir    = args.outdir
     os.makedirs(outdir, exist_ok=True)
@@ -139,16 +125,18 @@ def run():
                 rse_user_summary[rse] = {'used': f'{used}', 'limit': f'{limit}'}
                 # Add to the total
                 total_used += usage['bytes']
-                total_limit += usage['bytes_limit']
+
 
             # Store the total usage too
             total_used, total_used_units = bytes_to_best_units(total_used)
-            total_limit, total_limit_units = bytes_to_best_units(total_limit)
-            rse_user_summary['total']    = {'used': f'{total_used:.2f} {total_used_units}', 'limit': f'{total_limit:.2f} {total_limit_units}'}
+            total_limit = sum([float(disk_type_to_acc_limit[rsetype][0]) for rsetype in disk_type_to_acc_limit])
+
+            rse_user_summary['total']    = {'used': f'{total_used:.2f} {total_used_units}', 'limit': f'{total_limit:.2f} TB'}
             # Write the summary to a json file
             with open(f'{outdir}/rse_usage_{usr}.json', 'w') as f:
                 json.dump(rse_user_summary, f, indent=2)
 
+    if not breakdown: return
     # Get the datasets
     dataset_handler = RucioDatasetHandler(regexes = regexes,
                                           rses = rses,

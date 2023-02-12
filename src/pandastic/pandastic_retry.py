@@ -13,7 +13,6 @@ from pandaclient import queryPandaMonUtils
 pbook = PBookCore.PBookCore()
 # Pandastic
 from tools import ( draw_progress_bar )
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ===============  Arg Parser Help ===============================
 _h_regexes   = 'A regex/pattern in the taskname to be used to find the jobs to retry'
@@ -25,7 +24,7 @@ _h_fromfiles = 'Files containing lists of tasks to retry'
 _h_usetasks  = 'Specify task statuses to look for here'
 
 # ===============  Arg Parser Defaults ===============================
-_d_usetasks = ['ready','pending','exhausted','finished','failed']
+_d_usetasks = ['ready','pending','exhausted','finished','failed', 'broken']
 
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
