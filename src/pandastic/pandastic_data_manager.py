@@ -21,7 +21,7 @@ import rucio
 import rucio.client.downloadclient as downloadclient
 
 # Pandastic
-from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar )
+from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files )
 from common import (  get_rses_from_regex, RulesAndReplicasReq)
 from delete_actions import ( get_ruleids_to_delete, delete_rule )
 from replicate_actions import ( add_rule )
@@ -64,6 +64,8 @@ _h_fromfiles              = 'Files containing lists of datasets to process \n \
                              The regex will be used to filter the datasets, and rses will be used get datasets to process'
 _h_cont_rule_req          = 'If a container has a rule on a given RSE, should we process the datasets in it?\
                              This is used when applying the filter using existing rules/replicas.'
+_h_nohist_on_rse          = 'Ignore datasets that has ever had rules on given RSEs!'
+_h_notinfiles             = 'Files containing lists of datasets to ignore'
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'assigned', 'starting', 'running',
@@ -90,6 +92,7 @@ def argparser():
     parser.add_argument('--scopes',                   nargs='+',                                         help=_h_scopes)
     parser.add_argument('--rule_on_rse',              nargs='+',                                         help=_h_rule_on_rse)
     parser.add_argument('--replica_on_rse',           nargs='+',                                         help=_h_replica_on_rse)
+    parser.add_argument('--norulehist_on_rse',     nargs='+',                                         help=_h_nohist_on_rse)
     parser.add_argument('--rule_or_replica_on_rse',   action='store_true',                               help=_h_rule_or_replica_on_rse)
     parser.add_argument('--contrulereq',              action='store_true',                               help=_h_cont_rule_req)
     parser.add_argument('--usetasks',                 nargs='+', choices = _choices_usetasks,            help=_h_usetask)
@@ -99,6 +102,7 @@ def argparser():
     parser.add_argument('--submit',                   action='store_true',                               help=_h_submit)
     parser.add_argument('--outdir',                   type=str,   default='./',                          help=_h_outdir)
     parser.add_argument('--fromfiles',                type=str,   nargs='+',                             help=_h_fromfiles)
+    parser.add_argument('--notinfiles',               type=str,   nargs='+',                             help=_h_notinfiles)
 
     return parser.parse_args()
 
@@ -131,7 +135,8 @@ def run():
     existing_copies_req = RulesAndReplicasReq(args.rule_on_rse,
                                               args.replica_on_rse,
                                               args.rule_or_replica_on_rse,
-                                              args.contrulereq)
+                                              args.contrulereq,
+                                              args.norulehist_on_rse)
 
     # Workout how the datasets to be processed will be retrived
     fromfiles = args.fromfiles
@@ -174,9 +179,12 @@ def run():
     dataset_handler.PrintSummary()
     datasets = dataset_handler.GetDatasets()
 
+    ignore_datasets = []
+    if args.notinfiles is not None:
+        ignore_datasets = get_lines_from_files(args.notinfiles)
     # Filter the datasets
-    datasets = (dataset_handler.FilterDatasets(datasets, norule_on_allrses=rses)
-               if action == 'replicate' else dataset_handler.FilterDatasets(datasets))
+    datasets = (dataset_handler.FilterDatasets(datasets, norule_on_allrses=rses, ignore=ignore_datasets)
+               if action == 'replicate' else dataset_handler.FilterDatasets(datasets, ignore=ignore_datasets))
     # ==================================================== #
     # ================= Process the datasets ============== #
     # ==================================================== #

@@ -7,16 +7,17 @@ class RulesAndReplicasReq:
     '''
     Class to hold the rules and replicas requirements.
     '''
-    def __init__(self, rule_on_rse, replica_on_rse, rule_or_replica_on_rse, cont_rule_req):
+    def __init__(self, rule_on_rse, replica_on_rse, rule_or_replica_on_rse, cont_rule_req, norulehistory_on_rse):
         self.rule_on_rse = rule_on_rse
         self.replica_on_rse = replica_on_rse
         self.rule_or_replica_on_rse = rule_or_replica_on_rse
         self.cont_rule_req = cont_rule_req
+        self.norulehistory_on_rse = norulehistory_on_rse
 
     def __repr__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse}, cont_rule_req={self.cont_rule_req})"
+        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse}, cont_rule_req={self.cont_rule_req}, norulehistory_on_rse={self.norulehistory_on_rse})"
     def __str__(self):
-        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse}, cont_rule_req={self.cont_rule_req})"
+        return f"RulesAndReplicasReq(rule_on_rse={self.rule_on_rse}, replica_on_rse={self.replica_on_rse}, rule_or_replica_on_rse={self.rule_or_replica_on_rse}, cont_rule_req={self.cont_rule_req}, norulehistory_on_rse={self.norulehistory_on_rse})"
 
 # =============================================================
 # =============== Methods for Rucio rule checking  =============
@@ -83,6 +84,37 @@ def has_replica_on_rse(did, scope, rse, replicacl):
             file_replica_is_on_req_rse.append(False)
     if all(file_replica_is_on_req_rse): return True
     else: return False
+
+def has_rulehist_on_rse(did, scope, rse, rulecl):
+    '''
+    Method to check if a dataset has ever had a rule  on a given RSE
+    by checking replication rule history.
+
+    Parameters
+    ----------
+    did: str
+        Name of the dataset to check
+    scope: str
+        Scope of the dataset to check
+    rse: str
+        Name of the RSE to check
+    replcl: rucio.client.replicaclient.ReplicaClient
+        Replica client to use to get the list of replicas
+
+    Returns
+    -------
+    has_rulehist: bool
+        True if the dataset has ever had a rule on the RSE, False otherwise
+    '''
+
+    rulehist = list(rulecl.list_replication_rule_full_history(scope, did.replace('/','')))
+    for rule in rulehist:
+        if re.match(rse, rule.get("rse_expression")) is not None:
+            return True
+
+    # If here, no rule found on RSE
+    return False
+
 
 def get_rses_from_regex(rse_regex, rsecl):
     '''

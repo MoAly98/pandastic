@@ -265,4 +265,5 @@ def get_lines_from_files(files):
     all_lines = []
     for f in files:
         with open(f,'r') as f:  all_lines.extend(f.readlines())
+    all_lines = [l.strip() for l in all_lines]
     return all_lines

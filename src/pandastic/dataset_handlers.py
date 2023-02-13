@@ -16,7 +16,7 @@ from rucio import client as rucio_client
 import rucio
 # Pandastic
 from tools import ( draw_progress_bar, get_lines_from_files )
-from common import ( has_replica_on_rse, has_rule_on_rse,
+from common import ( has_replica_on_rse, has_rule_on_rse, has_rulehist_on_rse,
                      RulesAndReplicasReq)
 
 class DatasetHandler(object):
@@ -63,7 +63,11 @@ class DatasetHandler(object):
         # Get the datasets from the files
         all_datasets = get_lines_from_files(self.fromfiles)
         for ds in all_datasets:
-            scope, did = ds.split(':')
+            if ':' in ds:
+                scope, did = ds.split(':')
+            else:
+                did = ds
+                scope = '.'.join(did.split('.')[:2])
             if not any(re.match(regex, did) for regex in self.regexes):
                 continue
             datasets[scope].add(did.strip())
@@ -72,7 +76,8 @@ class DatasetHandler(object):
 
     def FilterDatasets(self,
                        datasets : 'defaultdict(set)',
-                       norule_on_allrses: list = None):
+                       norule_on_allrses: list = None,
+                       ignore: list = None):
         '''
         Method to filter datasets based on rules and replicas requirements.
 
@@ -84,7 +89,8 @@ class DatasetHandler(object):
             dict with keys as scopes and values as sets of datasets being processed
         norule_on_allrses: list
             List of RSEs that we don't want datasets to have a rule on all of them
-
+        ignore: list
+            List of datasets to ignore
         Returns
         -------
         filtered_datasets: defaultdict(set)
@@ -94,6 +100,9 @@ class DatasetHandler(object):
         filtered_datasets = defaultdict(set)
         for scope, dses in datasets.items():
             for ds in dses:
+                if ignore is not None and ds.replace('/','') in ignore:
+                    print(f"WARNING: Dataset {ds} is in the ignore list. Skipping.")
+                    continue
 
                 if norule_on_allrses is not None:
                     # We check if the dataset has a rule on all the RSEs that are required to not have a rule on all of them
@@ -144,6 +153,25 @@ class DatasetHandler(object):
                         req_existing_replica_exists = req_existing_replica_exists_ds or req_existing_replica_exists_parent
 
                         if req_existing_replica_exists: break
+
+                # We check if the dataset has ever had a rule on an RSE where it shouldn't have had a rule ever
+                # This is useful if we want to only e.g. replicate datasets that were not replicated and deleted before from an RSE
+
+                req_norulehist = [True] # Set to True by default so that if no RSEs are specified, the check passes
+                if rules_and_replicas_req.norulehistory_on_rse is not None:
+                    # Set to False so that if RSEs are specified, and none of them have a replica, the check fails
+                    req_norulehist = [False]*len(rules_and_replicas_req.norulehistory_on_rse)
+                    for i, rse in enumerate(rules_and_replicas_req.norulehistory_on_rse):
+                        req_norulehist_ds = not has_rulehist_on_rse(ds, scope, rse, self.rulecl)
+                        # Can a parent container satisfy the condition?
+                        req_norulehist_parent = False
+                        if rules_and_replicas_req.cont_rule_req and parent is not None and ds_type == 'DATASET':
+                            req_norulehist_parent = not has_rulehist_on_rse(parent, scope, rse, self.rulecl)
+
+                        req_norulehist[i] = req_norulehist_ds or req_norulehist_parent
+
+                if not all(req_norulehist):
+                    continue
 
                 # If user is asking for either a rule or a replica but necessarily both, then we check if either exists
                 if rules_and_replicas_req.rule_or_replica_on_rse:
