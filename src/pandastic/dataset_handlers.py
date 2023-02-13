@@ -103,7 +103,9 @@ class DatasetHandler(object):
                         continue
                 try:
                     ds_type = self.didcl.get_metadata(scope, ds.replace('/','')).get('did_type')
-                    parent  = next(self.didcl.list_parent_dids(scope, ds.replace('/',''))).get('name')
+                    parent  = next(self.didcl.list_parent_dids(scope, ds.replace('/','')), None)
+                    if parent is not None:
+                        parent = parent.get('name')
 
                 except rucio.common.exception.DataIdentifierNotFound:
                     print(f"WARNING: Dataset {ds} not found on Rucio. Skipping.")
