@@ -98,6 +98,7 @@ def run():
         users     = args.grid_user
         days      = args.days
 
+        urls = {}
         for user in users:
             if not unpause: statuses = pause
             else: statuses = 'paused'
@@ -110,6 +111,7 @@ def run():
             print(f"INFO:: PanDAs query URL: {url}")
             tasks = [t for t in tasks if any(re.match(regex, t.get('taskname')) for regex in regexes)]
             to_un_pause.extend(tasks)
+            urls[user] = url.replace('json=1&', '')
 
     # ==================================================== #
     # ================= Pause/Unpause tasks ============== #
@@ -125,12 +127,16 @@ def run():
 
     if unpause: action = 'Unpausing'
     else:   action = 'Pausing'
+
+    taskids = defaultdict(list)
     # Loop over the datasets in scope
     for task in to_un_pause:
 
             request_id     = task.get('reqid')
             taskname       = task.get('taskname')
             taskid         = task.get('jeditaskid')
+            user           = task.get('username')
+
 
             # Work out the percentage completion of task using nfiles and nfilesfinished
             nfiles         = float(task.get('nfiles'))
@@ -151,11 +157,12 @@ def run():
             print(f"INFO:: {action} the task {taskname} which is  {percentage_done} % complete")
 
             # Only really add the rule if --submit is used
-            if args.submit and unpause: Client.resumeTask(taskid) # pbook.execute_workflow_command('resume', request_id)
-            if args.submit and not unpause: pbook.execute_workflow_command('suspend', request_id)
+            if args.submit and unpause: pbook.resume(taskid) # pbook.execute_workflow_command('resume', request_id)
+            if args.submit and not unpause: pbook.pause(taskid)
 
             # Write to monitoring scripts
             tasks_monit_file.write(taskname+'\n')
+            taskids[user].append(str(taskid))
 
             # Keep track of number of rule deletions
             npause += 1
@@ -164,6 +171,13 @@ def run():
 
     # Close the files for monitoring
     tasks_monit_file.close()
+
+    # string together the taskids to generate a url
+    for user, ids in taskids.items():
+        taskids_str = '|'.join(ids)
+        url = urls[user]
+        url += f'&jeditaskid={taskids_str}'
+        print(f"INFO:: URL to paused/unpaused tasks for user {user}: {url}")
 
     # Dump the deletion summary to a json file
     with open(f'{outdir}/tasks_to_un_pause_{now}.json', 'w') as f:
