@@ -223,7 +223,7 @@ class PandaDatasetHandler(DatasetHandler):
         print(f'RSEs considred for action: {self.rses}')
         print(f'Only consider containers: {self.only_cont}')
         print(f'Rules and replicas requirements: {self.rules_replica_req}')
-        print(f'Task inpit and output file count must match: {self.matchfiles}')
+        print(f'Task input and output file count must match: {self.matchfiles}')
         print(f'PanDA users to consider: {self.panda_users}')
         print(f'PanDA tasks to consider: {self.usetasks}')
         print(f'PanDA days to consider: {self.days}')

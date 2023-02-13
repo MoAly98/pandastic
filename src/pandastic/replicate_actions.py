@@ -23,14 +23,14 @@ def add_rule(ds, rse, lifetime, scope, rulecl):
     '''
 
     try:
-        rule = rulecl.add_replication_rule([{'scope':scope, 'name': ds.replace('/','')}], 1, rse_expression, lifetime = lifetime)
+        rule = rulecl.add_replication_rule([{'scope':scope, 'name': ds.replace('/','')}], 1, rse, lifetime = lifetime)
         print(f'INFO:: DS = {ds} \n RuleID: {rule[0]}')
         return rule[0]
 
     except rucio.common.exception.DuplicateRule as de:
-        print(f"WARNING:: Duplication already done for \n {ds} \n to {rse_expression} ...  skipping!")
+        print(f"WARNING:: Duplication already done for \n {ds} \n to {rse} ...  skipping!")
         return None
 
     except rucio.common.exception.ReplicationRuleCreationTemporaryFailed as tfe:
-        print(f"WARNING:: Duplication not currently possible for \n {ds} \n to {rse_expression} ...  skipping, try again later!")
+        print(f"WARNING:: Duplication not currently possible for \n {ds} \n to {rse} ...  skipping, try again later!")
         return None
