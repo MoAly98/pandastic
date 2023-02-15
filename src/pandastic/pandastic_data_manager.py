@@ -66,6 +66,7 @@ _h_cont_rule_req          = 'If a container has a rule on a given RSE, should we
                              This is used when applying the filter using existing rules/replicas.'
 _h_nohist_on_rse          = 'Ignore datasets that has ever had rules on given RSEs!'
 _h_notinfiles             = 'Files containing lists of datasets to ignore'
+_h_maxlifeleft            = 'Maximum lifetime left for a rule to be processed (useful for update of rules)'
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'assigned', 'starting', 'running',
@@ -103,6 +104,7 @@ def argparser():
     parser.add_argument('--outdir',                   type=str,   default='./',                          help=_h_outdir)
     parser.add_argument('--fromfiles',                type=str,   nargs='+',                             help=_h_fromfiles)
     parser.add_argument('--notinfiles',               type=str,   nargs='+',                             help=_h_notinfiles)
+    parser.add_argument('--maxlifeleft',              type=str,                                          help=_h_maxlifeleft)
 
     return parser.parse_args()
 
@@ -265,8 +267,9 @@ def run():
             elif action == 'update':
                 # Prepare in case a dataset has no rules
                 no_valid_rules = True
+                max_time_to_death = args.maxlifeleft
                 # Find the rules to update and rses to update them from
-                rule_ids_rses_zip = get_ruleids_to_update(did, usable_rses, rses, scope, didcl)
+                rule_ids_rses_zip = get_ruleids_to_update(did, usable_rses, rses, scope, max_time_to_death, didcl)
                 # Loop over the rules to update and rse to update them from
                 for ruleid, rse in rule_ids_rses_zip:
                     # If we are here, at least one rule was found for the dataset

@@ -37,7 +37,7 @@ _h_bytask     = 'Should the output tabulate task status? If not, it will tabulat
 _h_complete   = 'What task status should be considered complete? Default is "done"'
 _h_incomplete   = 'What task status should be considered complete? Default is "ready","pending","exhausted","finished","failed","throttled","running","scouting"'
 # ===============  Arg Parser Defaults ===============================
-_d_incomplete = ['ready','pending','exhausted','finished','failed','throttled','running','scouting', 'paused']
+_d_incomplete = ['ready','pending','exhausted','finished','failed','throttled','running','scouting', 'paused','broken']
 _d_complete   = ['done']
 
 
@@ -303,8 +303,6 @@ def run():
 
         print(f"INFO:: PanDAs query URL for not-done tasks from user {user}: {notdone_url}")
         all_notdone.extend(notdone_data)
-
-
 
     # Build the dictionary for all_done and all_notdone jobs which maps the (DSID, CAMP, TAG) to the state (OK/NOT OK)
     # and then merge the two dictionaries

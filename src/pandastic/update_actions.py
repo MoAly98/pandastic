@@ -1,6 +1,7 @@
 import re
+import datetime
 
-def get_ruleids_to_update(did, rses_to_update_on, rse_regexes, scope, didcl):
+def get_ruleids_to_update(did, rses_to_update_on, rse_regexes, scope, max_timetodeath, didcl):
     '''
     Method to get the rule IDs to update for a dataset and associated RSEs
 
@@ -32,6 +33,13 @@ def get_ruleids_to_update(did, rses_to_update_on, rse_regexes, scope, didcl):
     for rule in rules:
         rse_for_rule = rule.get('rse_expression')
         rule_id = rule['id']
+        rule_timetodeath = rule['expires_at']-datetime.datetime.now()
+        if max_timetodeath is not None:
+            if rule_timetodeath.total_seconds() >= float(max_timetodeath):
+                print(f"INFO:: Rule {rule_id} on {rse_for_rule} has a lifetime of {rule_timetodeath.total_seconds()}s, which is more than the requested max lifetime of {max_timetodeath}s. Skipping rule.")
+                continue
+        rule_timetodeath = rule['expires_at']-datetime.datetime.now()
+
         if rse_for_rule in rses_to_update_on or any(re.match(rse_rgx, rse_for_rule) for rse_rgx in rse_regexes):
             ruleids_to_update.append(rule_id)
             found_rses_to_update_on.append(rse_for_rule)
