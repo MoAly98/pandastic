@@ -315,9 +315,6 @@ class PandaDatasetHandler(DatasetHandler):
 
             for ds in task_datasets:
 
-                # Skip ds if it has no files to avoid rucio headaches
-                if ds.get("nfilesfinished") < 1 : continue
-
                 # Get the type of the dataset
                 dstype = ds.get("type")
                 # Get the name of the dataset
