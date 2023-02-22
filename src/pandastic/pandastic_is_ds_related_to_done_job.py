@@ -14,7 +14,7 @@ from rucio import client as rucio_client
 didcl = rucio_client.didclient.DIDClient()
 
 # # Pandastic
-from tools import get_dsid, get_tag
+from utils.tools import ( get_dsid, get_tag )
 
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================

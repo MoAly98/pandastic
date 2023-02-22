@@ -12,9 +12,9 @@ from collections import defaultdict
 from rucio import client as rucio_client
 RUCIO_USER = os.environ.get('RUCIO_ACCOUNT')
 # Pandastic
-from tools import  ( dataset_size, bytes_to_best_units, draw_progress_bar )
-from common import (  get_rses_from_regex, has_rule_on_rse)
-from dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
+from utils.tools import  ( dataset_size, bytes_to_best_units, draw_progress_bar )
+from utils.common import (  get_rses_from_regex, has_rule_on_rse)
+from utils.dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
 
 # ===============  Rucio Clients ================
 rulecl    = rucio_client.ruleclient.RuleClient()

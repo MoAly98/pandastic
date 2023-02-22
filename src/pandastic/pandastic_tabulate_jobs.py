@@ -24,7 +24,7 @@ from pandaclient import queryPandaMonUtils
 pbook = PBookCore.PBookCore()
 
 # Pandastic
-from tools import (merge_dicts, sort_dict, nested_dict_equal, get_camp, get_dsid, get_tag, progress_bar)
+from utils.tools import (merge_dicts, sort_dict, nested_dict_equal, get_camp, get_dsid, get_tag, progress_bar)
 
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================

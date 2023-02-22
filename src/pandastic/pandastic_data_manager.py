@@ -21,12 +21,12 @@ import rucio
 import rucio.client.downloadclient as downloadclient
 
 # Pandastic
-from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files )
-from common import (  get_rses_from_regex, RulesAndReplicasReq)
-from delete_actions import ( get_ruleids_to_delete, delete_rule )
-from replicate_actions import ( add_rule )
-from update_actions import ( get_ruleids_to_update, update_rule )
-from dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
+from utils.tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files )
+from utils.common import ( get_rses_from_regex, RulesAndReplicasReq )
+from actions.delete_actions import ( get_ruleids_to_delete, delete_rule )
+from actions.replicate_actions import ( add_rule )
+from actions.update_actions import ( get_ruleids_to_update, update_rule )
+from utils.dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
 
 # ===============  Rucio Clients ================
 rulecl     = rucio_client.ruleclient.RuleClient()

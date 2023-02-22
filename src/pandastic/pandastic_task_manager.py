@@ -12,7 +12,7 @@ import pandaclient.Client as Client
 pbook = PBookCore.PBookCore()
 
 # Pandastic
-from tools import ( draw_progress_bar, merge_dicts )
+from utils.tools import ( draw_progress_bar, merge_dicts )
 
 
 # ===============  ArgParsing  ===================================

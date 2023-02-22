@@ -4,10 +4,10 @@ import argparse
 from rucio import client as rucio_client
 import rucio.client.uploadclient as uploadclient
 # Pandastic
-from tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files )
-from common import (  get_rses_from_regex )
+from utils.tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files )
+from utils.common import ( get_rses_from_regex )
 
-from upload_actions import ( upload_file )
+from actions.upload_actions import ( upload_file )
 
 
 # ===============  Rucio Clients ================
