@@ -80,11 +80,12 @@ def merge_dicts(d1, d2):
         Merged dictionary
     '''
     merged = {}
+
     for key in set(d1.keys()) | set(d2.keys()):
         if key in d1 and key in d2:
-            if type(d1[key]) == dict and type(d2[key]) == dict:
+            if isinstance(d1[key], dict) and isinstance(d2[key], dict):
                 merged[key] = merge_dicts(d1[key], d2[key])
-            elif type(d1[key]) == set and type(d2[key]) == set:
+            elif isinstance(d1[key], set) and isinstance(d2[key], set):
                 merged[key] = d1[key] | d2[key]
             else:
                 merged[key] = d1[key]
