@@ -28,6 +28,7 @@ _h_maxcomp    =  'Maximum percentage completion for jobs that should be acted on
 
 _h_submit     = 'Should the code submit the pausing/unpausing command'
 _h_outdir     = 'Output directory for the output files. Default is the current directory'
+_h_newargs    = 'New arguments to pass to the retry method'
 
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
@@ -169,8 +170,10 @@ def run():
                         print(f"ERROR:: Failed to {action} task {taskname} with error {e}")
                         continue
                 elif action == 'retry':
-                    if args.newargs is not None:
+                    if '--newargs' in sys.argv:
                         newargs  = json.loads(args.newargs)
+                    else:
+                        newargs = None
                     try:    pbook.retry(taskid, newOpts=newargs)
                     except Exception as e:
                         print(f"ERROR:: Failed to {action} task {taskname} with error {e}")
