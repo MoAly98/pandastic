@@ -67,6 +67,7 @@ _h_cont_rule_req          = 'If a container has a rule on a given RSE, should we
 _h_nohist_on_rse          = 'Ignore datasets that has ever had rules on given RSEs!'
 _h_notinfiles             = 'Files containing lists of datasets to ignore'
 _h_maxlifeleft            = 'Maximum lifetime left for a rule to be processed (useful for update of rules)'
+_h_noscopeinout           = 'Do not use scope in dataset names stored in the output file'
 # ===============  Arg Parser Choices ===============================
 _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'assigned', 'starting', 'running',
@@ -76,7 +77,7 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
                       'broken']
-_action_choices  = ['replicate', 'delete', 'update', 'download']
+_action_choices  = ['find', 'replicate', 'delete', 'update', 'download']
 
 def argparser():
     '''
@@ -105,7 +106,7 @@ def argparser():
     parser.add_argument('--fromfiles',                type=str,   nargs='+',                             help=_h_fromfiles)
     parser.add_argument('--notinfiles',               type=str,   nargs='+',                             help=_h_notinfiles)
     parser.add_argument('--maxlifeleft',              type=str,                                          help=_h_maxlifeleft)
-
+    parser.add_argument('--noScopeInOut',             action='store_true',                               help=_h_noscopeinout)
     return parser.parse_args()
 
 def run():
@@ -118,13 +119,13 @@ def run():
 
     # Prepare list of RSEs concerned
     rses       = args.rses
-    if action != 'download':
+    if action != 'download' and action != 'find':
         assert rses is not None, f"ERROR: RSEs must be specified for action {action}"
     rses      = rses if rses is not None else []
     usable_rses = set()
     for rse in rses:
         usable_rses |= get_rses_from_regex(rse, rsecl)
-    if action != 'download':
+    if action != 'download' and action != 'find':
         assert len(usable_rses) > 0, "No RSEs found to replicate to. Exiting."
 
     if action == 'replicate' or action == 'update':
@@ -202,9 +203,10 @@ def run():
 
     # Loop over the scopes
     for scope, dids in datasets.items():
+        print(f"Looking into actioning {len(dids)} datasets in scope {scope}")
         # Loop over the datasets in scope
         for did in dids:
-
+            outds = did if args.noScopeInOut else f'{scope}:{did}'
             # Try to get the size of the dataset, use as proxy to skip datasets
             # found from a task but not existing on Rucio...
             try:
@@ -226,7 +228,7 @@ def run():
                             ruleid = 'NOT_SUBMITTED'
 
                         # Write to monitoring scripts
-                        dids_monit_file.write(f"{scope}:{did}\n")
+                        dids_monit_file.write(f"{outds}\n")
                         ruleid_monit_file.write(ruleid+'\n')
                         # Keep track of number of rule deletions
                         nprocessed += 1
@@ -253,7 +255,7 @@ def run():
                         if not success: continue
 
                     # Write to monitoring scripts
-                    dids_monit_file.write(f"{scope}:{did}\n")
+                    dids_monit_file.write(f"{outds}\n")
                     ruleid_monit_file.write(ruleid+'\n')
                     # Keep track of number of rule deletions
                     nprocessed += 1
@@ -284,7 +286,7 @@ def run():
                         success = update_rule(ruleid, args.lifetime, rulecl)
                         if not success: continue
                     # Write to monitoring scripts
-                    dids_monit_file.write(f"{scope}:{did}\n")
+                    dids_monit_file.write(f"{outds}\n")
                     ruleid_monit_file.write(ruleid+'\n')
                     # Keep track of number of rule updates
                     nprocessed += 1
@@ -295,7 +297,7 @@ def run():
                 if no_valid_rules:
                     print("WARNING:: No rules to update for dataset: ", did)
                     continue
-            else:
+            elif action == 'download':
                 items = {'did': did, 'base_dir': outdir}
                 if rses is not None:
                     if len(rses) == 1:
@@ -305,6 +307,9 @@ def run():
 
                 try:    downloadcl.download_dids([items])
                 except excep.NotAllFilesDownloaded as e:    raise str(e)
+            else:
+                dids_monit_file.write(f"{outds}\n")
+                nprocessed += 1
 
 
     dids_monit_file.close()

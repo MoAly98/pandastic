@@ -39,7 +39,7 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
                       'broken']
-_action_choices  = ['pause', 'unpause', 'retry', 'kill']
+_action_choices  = ['find', 'pause', 'unpause', 'retry', 'kill']
 
 def argparser():
     '''
@@ -116,7 +116,7 @@ def run():
             tasks = [t for t in tasks if any(re.match(regex, t.get('taskname')) for regex in regexes)]
             to_act_on.extend(tasks)
             url = re.sub('status=.*&', '', url)
-            urls[user] = url.replace('json=1&', '')
+            urls[user.lower()] = url.replace('json=1&', '')
 
     # ==================================================== #
     # ================= Operate on tasks ============== #
@@ -183,12 +183,14 @@ def run():
                     except Exception as e:
                         print(f"ERROR:: Failed to {action} task {taskname} with error {e}")
                         continue
+                elif action == 'find':
+                    pass
                 else:
                     raise ValueError(f"ERROR:: Action {action} not recognised")
 
             # Write to monitoring scripts
             tasks_monit_file.write(taskname+'\n')
-            taskids[user].append(str(taskid))
+            taskids[user.lower()].append(str(taskid))
 
             # Keep track of number of rule deletions
             nop+= 1
@@ -201,7 +203,8 @@ def run():
     # string together the taskids to generate a url
     for user, ids in taskids.items():
         taskids_str = '|'.join(ids)
-        url = urls[user]
+        clean_user = user.replace(' ', '+').lower()
+        url = urls[clean_user]
         url += f'&jeditaskid={taskids_str}'
         print(f"INFO:: URL to {action} tasks for user {user}: {url}")
 

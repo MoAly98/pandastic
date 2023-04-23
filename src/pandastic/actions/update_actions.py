@@ -70,7 +70,7 @@ def update_rule(ruleid, lifetime, rulecl):
     try:
         rulecl.update_replication_rule(ruleid, {'lifetime': lifetime})
         return True
-    except:
+    except Exception as e:
         print(f"WARNING:: Rule update failed for rule ID {ruleid} ...  skipping!")
         return False
 

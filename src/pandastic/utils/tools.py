@@ -239,7 +239,7 @@ def draw_progress_bar(numitems, current_item, msg = 'Progress'):
         Message to display before the progress bar (default='Progress')
     '''
 
-    if current_item == 0: progress_bar(numitems, current_item)
+    if current_item == 0: progress_bar(numitems, current_item, msg=msg)
 
     if (numitems > 1000):
         if (current_item+1)%1000 == 0: progress_bar(numitems, current_item+1, msg=msg)

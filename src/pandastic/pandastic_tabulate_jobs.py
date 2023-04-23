@@ -37,7 +37,7 @@ _h_bytask     = 'Should the output tabulate task status? If not, it will tabulat
 _h_complete   = 'What task status should be considered complete? Default is "done"'
 _h_incomplete   = 'What task status should be considered complete? Default is "ready","pending","exhausted","finished","failed","throttled","running","scouting"'
 # ===============  Arg Parser Defaults ===============================
-_d_incomplete = ['ready','pending','exhausted','finished','failed','throttled','running','scouting', 'paused','broken']
+_d_incomplete = ['ready','pending','exhausted','finished','failed','throttled','running','scouting','paused','broken','aborted']
 _d_complete   = ['done']
 
 
@@ -324,7 +324,6 @@ def run():
 
     # Convert the dictionary to a pandas multi-index dataframe
     df = pd.DataFrame.from_dict(all_jobs, orient="index").rename_axis(["DSID", "Campaign", "FS/AFII"])
-
     # Prepare the multi-index dataframe for export
     df = prepare_multiindex_for_export(df)
     print("INFO:: You will find the output in the following file: ", outpath)
