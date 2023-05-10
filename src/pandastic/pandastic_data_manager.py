@@ -21,10 +21,11 @@ import rucio
 import rucio.client.downloadclient as downloadclient
 
 # Pandastic
-from utils.tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files )
+from utils.tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files, SetEncoder )
 from utils.common import ( get_rses_from_regex, RulesAndReplicasReq )
 from actions.delete_actions import ( get_ruleids_to_delete, delete_rule )
 from actions.replicate_actions import ( add_rule )
+from actions.filelist_actions import ( list_replicas )
 from actions.update_actions import ( get_ruleids_to_update, update_rule )
 from utils.dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
 
@@ -42,7 +43,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # ===============  ArgParsing  ===================================
 # ===============  Arg Parser Help ===============================
 _h_action                 = 'The action to perform on the datasets'
-_h_regex                  = 'A regex in the panda *taskname* to be used to find the jobs to replicate datasets from'
+_h_regex                  = 'A regex in the panda *taskname*/*did* to be used to find the jobs to replicate datasets from'
 _h_rses                   =  'The RSEs to process to (create rules there)'
 _h_rule_on_rse            = 'List of RSEs that the DID must have rule on *any* of them before we process it'
 _h_replica_on_rse         = 'List of RSEs that the DID must have replica on *any* of them before we process it'
@@ -76,8 +77,8 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
-                      'broken']
-_action_choices  = ['find', 'replicate', 'delete', 'update', 'download']
+                      'broken', 'submitting']
+_action_choices  = ['listfiles', 'find', 'replicate', 'delete', 'update', 'download']
 
 def argparser():
     '''
@@ -94,7 +95,7 @@ def argparser():
     parser.add_argument('--scopes',                   nargs='+',                                         help=_h_scopes)
     parser.add_argument('--rule_on_rse',              nargs='+',                                         help=_h_rule_on_rse)
     parser.add_argument('--replica_on_rse',           nargs='+',                                         help=_h_replica_on_rse)
-    parser.add_argument('--norulehist_on_rse',     nargs='+',                                         help=_h_nohist_on_rse)
+    parser.add_argument('--norulehist_on_rse',        nargs='+',                                         help=_h_nohist_on_rse)
     parser.add_argument('--rule_or_replica_on_rse',   action='store_true',                               help=_h_rule_or_replica_on_rse)
     parser.add_argument('--contrulereq',              action='store_true',                               help=_h_cont_rule_req)
     parser.add_argument('--usetasks',                 nargs='+', choices = _choices_usetasks,            help=_h_usetask)
@@ -119,13 +120,13 @@ def run():
 
     # Prepare list of RSEs concerned
     rses       = args.rses
-    if action != 'download' and action != 'find':
+    if action != 'download' and action != 'find' and action != 'listfiles':
         assert rses is not None, f"ERROR: RSEs must be specified for action {action}"
     rses      = rses if rses is not None else []
     usable_rses = set()
     for rse in rses:
         usable_rses |= get_rses_from_regex(rse, rsecl)
-    if action != 'download' and action != 'find':
+    if action != 'download' and action != 'find' and action != 'listfiles':
         assert len(usable_rses) > 0, "No RSEs found to replicate to. Exiting."
 
     if action == 'replicate' or action == 'update':
@@ -200,7 +201,8 @@ def run():
     # Prepare output files for monitoring
     dids_monit_file = open(f'{outdir}/monit_{action}_dids_{now}.txt', 'w')
     ruleid_monit_file = open(f'{outdir}/monit_{action}_ruleids_{now}.txt', 'w')
-
+    if action == 'listfiles':
+        replica_monit_file = open(f'{outdir}/monit_{action}_replicas_{now}.txt', 'a+')
     # Loop over the scopes
     for scope, dids in datasets.items():
         print(f"Looking into actioning {len(dids)} datasets in scope {scope}")
@@ -299,21 +301,28 @@ def run():
                     continue
             elif action == 'download':
                 items = {'did': did, 'base_dir': outdir}
-                if rses is not None:
-                    if len(rses) == 1:
-                        items = {'did': cont, 'base_dir': outdir, 'rse': rses[0]}
+                if usable_rses is not None:
+                    if len(usable_rses) == 1:
+                        items = {'did': cont, 'base_dir': outdir, 'rse': usable_rses[0]}
                     else:
                         print("WARNING:: More than one RSE specified for download is invalid... not using any RSEs")
 
                 try:    downloadcl.download_dids([items])
                 except excep.NotAllFilesDownloaded as e:    raise str(e)
+            elif action == 'listfiles':
+                replicas = list_replicas(did, scope, rses, replicacl)
+                json.dump(replicas, replica_monit_file, indent=4, cls=SetEncoder)
+                dids_monit_file.write(f"{outds}\n")
+                nprocessed += 1
+
             else:
                 dids_monit_file.write(f"{outds}\n")
                 nprocessed += 1
 
-
     dids_monit_file.close()
     ruleid_monit_file.close()
+    if action == 'listfiles':
+        replica_monit_file.close()
 
     # Dump the replication summary to a json file
     with open(f'{outdir}/{action}_summary_{now}.json', 'w') as f:

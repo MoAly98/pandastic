@@ -247,7 +247,7 @@ class PandaDatasetHandler(DatasetHandler):
         print(f'Summary of DatasetHandler object:')
         print(f'===================================')
         print(f'Method of extracting datasets: PanDA')
-        print(f'Regexes used to filter the datasets: {self.regexes}')
+        print(f'Regexes used to filter the PanDA tasks: {self.regexes}')
         print(f'RSEs considred for action: {self.rses}')
         print(f'Only consider containers: {self.only_cont}')
         print(f'Rules and replicas requirements: {self.rules_replica_req}')
