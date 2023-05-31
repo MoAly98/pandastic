@@ -69,13 +69,26 @@ python3 pandastic_data_manager.py <action> <args>
 ```
 
 The potential `<action>`s are:
+- *find:* used to list datasets
 - *replicate:* used to create new rules for datasets
 - *update:*    used to increase the lifetime for rules
 - *delete:*    used to delete rules
 - *download:*  used to download datasets
 
-The required `<args>` are:
+The required and allowed `<args>` can be found by running
+```
+python3 pandastic_data_manager.py --help
+```
 
+In general, you can specify:
+- Only use containers
+- Only use datasets which are INPUTS/OUTPUTS to pandas jobs with certain statuses
+    - Can require jobs to have matching number of input and output files
+- Only use datasets with replicas/rules on certiain RSE's
+- Only use datasets with no rule history on a given RSE, and can choose to apply this requirment on the parent container
+- Only use datasets with a certain life remaining
+
+And in general, the datasets/containers being processed will be dumped out into the output directory, and if any active action is taken, relevant identifiers will also be saved (e.g. rule creation IDs).
 
 ### Manipulating Tasks
 

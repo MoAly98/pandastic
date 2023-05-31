@@ -10,7 +10,7 @@ from pandaclient import queryPandaMonUtils
 import pandaclient.Client as Client
 
 pbook = PBookCore.PBookCore()
-
+pbook.init()
 # Pandastic
 from utils.tools import ( draw_progress_bar, merge_dicts )
 
@@ -38,7 +38,7 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
-                      'broken']
+                      'broken', 'submitting', 'finishing', 'aborting', 'passed']
 _action_choices  = ['find', 'pause', 'unpause', 'retry', 'kill']
 
 def argparser():
