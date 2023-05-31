@@ -15,6 +15,7 @@ from collections import defaultdict
 from pandaclient import PBookCore
 from pandaclient import queryPandaMonUtils
 pbook = PBookCore.PBookCore()
+pbook.init()
 # Rucio
 from rucio import client as rucio_client
 import rucio
@@ -77,7 +78,7 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
-                      'broken', 'submitting']
+                      'broken', 'submitting', 'finishing', 'aborting', 'passed']
 _action_choices  = ['listfiles', 'find', 'replicate', 'delete', 'update', 'download']
 
 def argparser():
@@ -91,7 +92,7 @@ def argparser():
     parser.add_argument('-d', '--days',               type=int,   default=30,                            help=_h_days)
     parser.add_argument('-u', '--grid-user',          nargs='+',  default=[pbook.username],              help=_h_users)
     parser.add_argument('-l', '--lifetime',           type=int,   default = 3600,                        help= _h_life)
-    parser.add_argument('--did',                      type=str,                                          help=_h_did)
+    parser.add_argument('--did',                      nargs='+',                                         help=_h_did)
     parser.add_argument('--scopes',                   nargs='+',                                         help=_h_scopes)
     parser.add_argument('--rule_on_rse',              nargs='+',                                         help=_h_rule_on_rse)
     parser.add_argument('--replica_on_rse',           nargs='+',                                         help=_h_replica_on_rse)
@@ -108,6 +109,7 @@ def argparser():
     parser.add_argument('--notinfiles',               type=str,   nargs='+',                             help=_h_notinfiles)
     parser.add_argument('--maxlifeleft',              type=str,                                          help=_h_maxlifeleft)
     parser.add_argument('--noScopeInOut',             action='store_true',                               help=_h_noscopeinout)
+    parser.add_argument('--downto',                   type=str,                                          help="Where to download to")
     return parser.parse_args()
 
 def run():
@@ -300,15 +302,20 @@ def run():
                     print("WARNING:: No rules to update for dataset: ", did)
                     continue
             elif action == 'download':
-                items = {'did': did, 'base_dir': outdir}
+                items = {'did': did, 'base_dir': args.downto}
                 if usable_rses is not None:
                     if len(usable_rses) == 1:
-                        items = {'did': cont, 'base_dir': outdir, 'rse': usable_rses[0]}
+                        items = {'did': cont, 'base_dir': args.downto, 'rse': usable_rses[0]}
                     else:
-                        print("WARNING:: More than one RSE specified for download is invalid... not using any RSEs")
+                        if len(usable_rses) != 0:
+                            print("WARNING:: More than one RSE specified for download is invalid... not using any RSEs")
 
-                try:    downloadcl.download_dids([items])
-                except excep.NotAllFilesDownloaded as e:    raise str(e)
+                dids_monit_file.write(f"{outds}\n")
+                if args.submit:
+                    try:
+                        downloadcl.download_dids([items])
+                        nprocessed += 1
+                    except rucio.common.exception.NotAllFilesDownloaded as e:    raise str(e)
             elif action == 'listfiles':
                 replicas = list_replicas(did, scope, rses, replicacl)
                 json.dump(replicas, replica_monit_file, indent=4, cls=SetEncoder)

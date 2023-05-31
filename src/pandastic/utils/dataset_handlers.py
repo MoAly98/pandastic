@@ -230,7 +230,7 @@ class PandaDatasetHandler(DatasetHandler):
                  ds_type: str,
                  days: int = 30,
                  users: list = [pbook.username],
-                 did: str = None,
+                 did: list = None,
                  matchfiles: bool = False,
                  **kwargs):
 
@@ -276,7 +276,7 @@ class PandaDatasetHandler(DatasetHandler):
 
         regexes = self.regexes
         ds_type = self.type
-        did_regex = self.did
+        did_regexes = self.did
         only_cont = self.only_cont
         matchfiles = self.matchfiles
         didcl = self.didcl
@@ -356,9 +356,10 @@ class PandaDatasetHandler(DatasetHandler):
                 if only_cont:   to_process = contname
 
                 # Check if the dataset/container name matches the DID regex
-                if did_regex is not None:
+                if did_regexes is not None:
+
                     # Skip the dataset/container if it doesn't match the DID regex
-                    if re.match(did_regex, to_process) is None:
+                    if all(re.match(did_regex, to_process)  is None for did_regex in did_regexes):
                         # If we are processing containers, we can optimise by
                         # adding the container to the hated_containers set
                         if only_cont:   hated_containers.add(to_process)
@@ -397,7 +398,6 @@ class PandaDatasetHandler(DatasetHandler):
         users = self.panda_users
         days  = self.days
         ds_type = self.type
-        did_regex = self.did
 
         # If --usetask is used, the dataset type must be specified
         assert ds_type is not None, "ERROR:: --type must be specified if --usetask is used"
