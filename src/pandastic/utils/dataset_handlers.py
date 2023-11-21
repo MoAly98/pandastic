@@ -406,7 +406,11 @@ class PandaDatasetHandler(DatasetHandler):
         for user in users:
             print(f"INFO:: Looking for tasks which are {self.usetasks} on the grid for user {user} in the last {days} days")
             # Find all PanDA tasks that are done for the user and period specified
-            _, url, tasks = queryPandaMonUtils.query_tasks(username=user, days=days, status=self.usetasks)
+            if self.usetasks == "any":
+                usetasks = None
+            else:
+                usetasks = self.usetasks
+            _, url, tasks = queryPandaMonUtils.query_tasks(username=user, days=days, status=usetasks)
 
             print(len(tasks), "tasks found")
             # Tell the user the search URL if they want to look

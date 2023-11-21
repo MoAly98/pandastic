@@ -38,7 +38,7 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
-                      'broken', 'submitting', 'finishing', 'aborting', 'passed']
+                      'broken', 'submitting', 'finishing', 'aborting', 'passed', 'any']
 _action_choices  = ['find', 'pause', 'unpause', 'retry', 'kill']
 
 def argparser():
@@ -108,6 +108,7 @@ def run():
         for user in users:
 
             print(f"INFO:: Looking for tasks with statuses {usetasks} on the grid for user {user} in the last {days} days")
+            if usetasks == "any": usetasks = None
             # Find all PanDA jobs that are done for the user and period specified
             _, url, tasks = queryPandaMonUtils.query_tasks( username=user, days=days, status=usetasks)
 

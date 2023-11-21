@@ -78,7 +78,7 @@ _choices_usetasks =  ['submitted', 'defined', 'activated',
                       'closed', 'aborted', 'unknown', 'all',
                       'throttled', 'scouting', 'scouted', 'done',
                       'tobekilled', 'ready', 'pending', 'exhausted', 'paused',
-                      'broken', 'submitting', 'finishing', 'aborting', 'passed']
+                      'broken', 'submitting', 'finishing', 'aborting', 'passed', 'any']
 _action_choices  = ['listfiles', 'find', 'replicate', 'delete', 'update', 'download']
 
 def argparser():
