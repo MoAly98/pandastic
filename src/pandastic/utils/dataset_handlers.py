@@ -309,7 +309,7 @@ class PandaDatasetHandler(DatasetHandler):
             # Get the name of the task
             taskname = task.get("taskname")
             # Skip the task if it doesn't match the regex
-            if all(re.match(rf'{rgx}', taskname) is None for rgx in regexes):    continue
+            if all(re.match(rf'{rgx}', taskname) is None for rgx in regexes):   continue
             # Get the datasets associated to the task
             task_datasets = task.get("datasets")
 
@@ -408,6 +408,7 @@ class PandaDatasetHandler(DatasetHandler):
             # Find all PanDA tasks that are done for the user and period specified
             _, url, tasks = queryPandaMonUtils.query_tasks(username=user, days=days, status=self.usetasks)
 
+            print(len(tasks), "tasks found")
             # Tell the user the search URL if they want to look
             print(f"INFO:: PanDAs query URL: {url}")
 

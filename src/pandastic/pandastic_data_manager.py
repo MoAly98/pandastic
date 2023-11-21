@@ -91,7 +91,7 @@ def argparser():
     parser.add_argument('-r', '--rses',               type=str,   nargs='+',                             help=_h_rses)
     parser.add_argument('-d', '--days',               type=int,   default=30,                            help=_h_days)
     parser.add_argument('-u', '--grid-user',          nargs='+',  default=[pbook.username],              help=_h_users)
-    parser.add_argument('-l', '--lifetime',           type=int,   default = 3600,                        help= _h_life)
+    parser.add_argument('-l', '--lifetime',           type=int,   default = 36000,                        help= _h_life)
     parser.add_argument('--did',                      nargs='+',                                         help=_h_did)
     parser.add_argument('--scopes',                   nargs='+',                                         help=_h_scopes)
     parser.add_argument('--rule_on_rse',              nargs='+',                                         help=_h_rule_on_rse)
