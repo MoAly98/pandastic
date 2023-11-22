@@ -112,6 +112,10 @@ class DatasetHandler(object):
                         continue
                 try:
                     ds_type = self.didcl.get_metadata(scope, ds.replace('/','')).get('did_type')
+                    nfiles = len(list(self.didcl.list_files(scope, ds.replace('/',''))))
+
+                    if nfiles == 0:
+                        print(f"WARNING: Dataset {ds} has zero files.")
                     parent  = next(self.didcl.list_parent_dids(scope, ds.replace('/','')), None)
                     if parent is not None:
                         parent = parent.get('name')
