@@ -139,7 +139,6 @@ def run():
             taskid         = task.get('jeditaskid')
             user           = task.get('username')
 
-
             # Work out the percentage completion of task using nfiles and nfilesfinished
             nfiles         = float(task.get('nfiles'))
             nfilesfinished = float(task.get('nfilesfinished'))
@@ -204,8 +203,7 @@ def run():
     # string together the taskids to generate a url
     for user, ids in taskids.items():
         taskids_str = '|'.join(ids)
-        clean_user = user.replace(' ', '+').lower()
-        url = urls[clean_user]
+        url = urls[user]
         url += f'&jeditaskid={taskids_str}'
         print(f"INFO:: URL to {action} tasks for user {user}: {url}")
 
