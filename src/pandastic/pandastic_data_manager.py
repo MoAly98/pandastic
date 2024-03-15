@@ -110,6 +110,7 @@ def argparser():
     parser.add_argument('--maxlifeleft',              type=str,                                          help=_h_maxlifeleft)
     parser.add_argument('--noScopeInOut',             action='store_true',                               help=_h_noscopeinout)
     parser.add_argument('--downto',                   type=str,                                          help="Where to download to")
+    parser.add_argument('--prod',                     action='store_true',                               help="Is this a production dataset")
     return parser.parse_args()
 
 def run():
@@ -170,7 +171,8 @@ def run():
                                                   users = args.grid_user,
                                                   usetasks = usetasks,
                                                   ds_type  = args.type,
-                                                  did  = args.did)
+                                                  did  = args.did,
+                                                  production = args.prod)
 
     else:
         # if --usetask is not used, the scopes must be specified

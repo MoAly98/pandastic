@@ -71,7 +71,6 @@ class DatasetHandler(object):
             if not any(re.match(regex, did) for regex in self.regexes):
                 continue
             datasets[scope].add(did.strip())
-
         return datasets
 
     def FilterDatasets(self,
@@ -236,6 +235,7 @@ class PandaDatasetHandler(DatasetHandler):
                  users: list = [pbook.username],
                  did: list = None,
                  matchfiles: bool = False,
+                 production: bool = False,
                  **kwargs):
 
         super().__init__(**kwargs)
@@ -245,7 +245,7 @@ class PandaDatasetHandler(DatasetHandler):
         self.type = ds_type
         self.did = did
         self.usetasks = usetasks
-
+        self.production = production
     def PrintSummary(self):
         print(f'===================================')
         print(f'Summary of DatasetHandler object:')
@@ -261,6 +261,7 @@ class PandaDatasetHandler(DatasetHandler):
         print(f'PanDA days to consider: {self.days}')
         print(f'PanDA dataset type to consider: {self.type}')
         print(f'PanDA dataset DID regex to consider: {self.did}')
+        print(f'Looking for production datasets (assuming scope is dataXX_xxTeV or mcXX_xxTeV)')
         print(f'===================================')
 
     def GetDatasetsFromTasks(self, tasks):
@@ -318,19 +319,20 @@ class PandaDatasetHandler(DatasetHandler):
             task_datasets = task.get("datasets")
 
             for ds in task_datasets:
-
                 # Get the type of the dataset
                 dstype = ds.get("type")
                 # Get the name of the dataset
                 dsname = ds.get("datasetname")
                 # Get the name of the dataset parent container
                 contname = ds.get("containername")
-
+                
+                # Skip the type of dataset we don't care about
+                if(dstype != look_for_type):    continue
                 # Get the scope from the dsname (is there a better way?)
+               
                 if ':' in dsname:   scope = dsname.split(':')[0]
-                else:   scope = '.'.join(dsname.split('.')[:2])
-
-
+                else:   scope = '.'.join(dsname.split('.')[:1]) if self.production else '.'.join(dsname.split('.')[:2])
+                
                 # === Note datasets live in containers, multiple datasets can live in the same container ===
                 # Skip the dataset if we know it's container is in the hated_containers set from another dataset
                 if contname in hated_containers:    continue
@@ -349,8 +351,6 @@ class PandaDatasetHandler(DatasetHandler):
                         print(f"Dataset {dsname} not found in Rucio -- skipping")
                         continue
 
-                # Skip the type of dataset we don't care about
-                if(dstype != look_for_type):    continue
 
                 # Skip if another dataset added this container (if we are saving containers)
                 if contname in datasets[scope]:    continue
@@ -391,7 +391,6 @@ class PandaDatasetHandler(DatasetHandler):
                         if ds in datasets[scope]:
                             print(f"WARNING:: Skipping the dataset {ds} for that reason...")
                             datasets[scope].remove(ds)
-
         return datasets
 
     def GetTasksFromPanda(self):
