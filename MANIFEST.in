@@ -1,0 +1,10 @@
+prune **
+graft src
+
+include setup.py
+include setup.cfg
+include README.md
+include pyproject.toml
+include MANIFEST.in
+
+global-exclude __pycache__ *.py[cod]
