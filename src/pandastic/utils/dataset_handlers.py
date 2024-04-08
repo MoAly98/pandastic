@@ -1,3 +1,4 @@
+#!python3
 
 # Required Imports
 # System
@@ -311,6 +312,7 @@ class PandaDatasetHandler(DatasetHandler):
             # =========  Progress Bar =========
             draw_progress_bar(len(tasks), i, f'Progress for collecting dids from tasks')
 
+            print(task)
             # Get the name of the task
             taskname = task.get("taskname")
             # Skip the task if it doesn't match the regex
@@ -325,14 +327,14 @@ class PandaDatasetHandler(DatasetHandler):
                 dsname = ds.get("datasetname")
                 # Get the name of the dataset parent container
                 contname = ds.get("containername")
-                
+
                 # Skip the type of dataset we don't care about
                 if(dstype != look_for_type):    continue
                 # Get the scope from the dsname (is there a better way?)
-               
+
                 if ':' in dsname:   scope = dsname.split(':')[0]
                 else:   scope = '.'.join(dsname.split('.')[:1]) if self.production else '.'.join(dsname.split('.')[:2])
-                
+
                 # === Note datasets live in containers, multiple datasets can live in the same container ===
                 # Skip the dataset if we know it's container is in the hated_containers set from another dataset
                 if contname in hated_containers:    continue

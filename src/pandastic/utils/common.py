@@ -1,3 +1,5 @@
+#!python3
+
 from collections import defaultdict
 import re
 # =============================================================
