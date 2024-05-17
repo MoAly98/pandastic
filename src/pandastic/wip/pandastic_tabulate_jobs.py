@@ -27,6 +27,9 @@ pbook = PBookCore.PBookCore()
 from utils.tools import (merge_dicts, sort_dict, nested_dict_equal, get_camp, get_dsid, get_tag, progress_bar)
 
 # ===============  ArgParsing  ===================================
+# ===============  Arg Parser Defaults ===============================
+_d_incomplete = ['ready','pending','exhausted','finished','failed','throttled','running','scouting','paused','broken','aborted']
+_d_complete   = ['done']
 # ===============  Arg Parser Help ===============================
 _h_regexes    = 'A space separated list of regexes to that identify various outputs of tasks'
 _h_labels     = 'A list of labels to identify what the job/container category is. Default is the regexes'
@@ -34,11 +37,9 @@ _h_days       = 'How many days in the past should we look for the jobs?'
 _h_users      = 'By default the tasks for the current user are the ones that will be queried. Use this option to query other users.'
 _h_outpath    = 'The file to dump information to'
 _h_bytask     = 'Should the output tabulate task status? If not, it will tabulate DID status and use regex to identify DIDs not tasks'
-_h_complete   = 'What task status should be considered complete? Default is "done"'
-_h_incomplete   = 'What task status should be considered complete? Default is "ready","pending","exhausted","finished","failed","throttled","running","scouting"'
-# ===============  Arg Parser Defaults ===============================
-_d_incomplete = ['ready','pending','exhausted','finished','failed','throttled','running','scouting','paused','broken','aborted']
-_d_complete   = ['done']
+_h_complete   = 'What task status should be considered complete?'
+_h_incomplete   = 'What task status should be considered complete?'
+
 
 
 def argparser():

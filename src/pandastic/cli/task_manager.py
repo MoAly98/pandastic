@@ -1,3 +1,5 @@
+#!python3
+
 # Required Imports
 # System
 import sys, os, json, re
@@ -5,14 +7,14 @@ import argparse
 from datetime import datetime
 from collections import defaultdict
 # PanDA: /cvmfs/atlas.cern.ch/repo/ATLASLocalRootBase/x86_64/PandaClient/1.5.9/lib/python3.6/site-packages/pandaclient/PBookCore.py
-from pandaclient import PBookCore
-from pandaclient import queryPandaMonUtils
+from   pandaclient import PBookCore
+from   pandaclient import queryPandaMonUtils
 import pandaclient.Client as Client
 
 pbook = PBookCore.PBookCore()
 pbook.init()
 # Pandastic
-from utils.tools import ( draw_progress_bar, merge_dicts )
+from pandastic.utils.tools import ( draw_progress_bar, merge_dicts )
 
 
 # ===============  ArgParsing  ===================================

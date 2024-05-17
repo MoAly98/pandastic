@@ -1,3 +1,5 @@
+#!python3
+
 '''
 This module is a dataset manager which links PanDA and Rucio. It's functionality is to
 delete, update, replicate rules for datasets that t he user specifies. It can also download
@@ -22,13 +24,13 @@ import rucio
 import rucio.client.downloadclient as downloadclient
 
 # Pandastic
-from utils.tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files, SetEncoder )
-from utils.common import ( get_rses_from_regex, RulesAndReplicasReq )
-from actions.delete_actions import ( get_ruleids_to_delete, delete_rule )
-from actions.replicate_actions import ( add_rule )
-from actions.filelist_actions import ( list_replicas )
-from actions.update_actions import ( get_ruleids_to_update, update_rule )
-from utils.dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
+from pandastic.utils.tools import ( dataset_size, bytes_to_best_units, draw_progress_bar, get_lines_from_files, SetEncoder )
+from pandastic.utils.common import ( get_rses_from_regex, RulesAndReplicasReq )
+from pandastic.actions.delete_actions import ( get_ruleids_to_delete, delete_rule )
+from pandastic.actions.replicate_actions import ( add_rule )
+from pandastic.actions.filelist_actions import ( list_replicas )
+from pandastic.actions.update_actions import ( get_ruleids_to_update, update_rule )
+from pandastic.utils.dataset_handlers import (DatasetHandler, RucioDatasetHandler, PandaDatasetHandler)
 
 # ===============  Rucio Clients ================
 rulecl     = rucio_client.ruleclient.RuleClient()

@@ -1,3 +1,5 @@
+#!python3
+
 import re, json
 class SetEncoder(json.JSONEncoder):
     def default(self, obj):
