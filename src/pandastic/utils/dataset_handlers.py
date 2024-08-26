@@ -16,8 +16,8 @@ pbook = PBookCore.PBookCore()
 from rucio import client as rucio_client
 import rucio
 # Pandastic
-from utils.tools import ( draw_progress_bar, get_lines_from_files )
-from utils.common import ( has_replica_on_rse, has_rule_on_rse, has_rulehist_on_rse,
+from pandastic.utils.tools import ( draw_progress_bar, get_lines_from_files )
+from pandastic.utils.common import ( has_replica_on_rse, has_rule_on_rse, has_rulehist_on_rse,
                      RulesAndReplicasReq)
 
 class DatasetHandler(object):
