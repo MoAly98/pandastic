@@ -4,6 +4,29 @@
 The PanDA-Rucio bridge is a main feature of `Pandastic`, but you don't have to always use it.
 `Pandastic` allows you to search and manipulate Rucio datasets and PanDA tasks independently.
 
+## Getting the Package
+
+The tool is available with `pip` and can be downloaded with
+
+```
+pip install pandastic
+```
+
+**Note:: you must be able to generate a VOMS-proxy to manipulate datasets with ATLAS. On `lxplus`, you will be prompted for your Grid certificate passphrase. On a local machine, you need to install VOMS**
+
+You may be prompted to create a rucio configuration.
+In this case, you should create a file in the prompted location with the content:
+```
+[client]
+rucio_host = https://rucio-lb-prod.cern.ch
+auth_host = https://atlas-rucio-auth.cern.ch
+ca_cert = /etc/grid-security/certificates/
+account = <rucio_account>
+auth_type = x509_proxy
+```
+or equivalent settings for different authentication method, or non-ATLAS host.
+If you are on lxplus, or have access to the ATLAS environment setup, simply running `setupATLAS -q && lsetup rucio` will achieve the same result. 
+
 ## What can you do with the package:
 
 ### For datasets:
@@ -48,17 +71,6 @@ Once the list of tasks is is retrieved, you can perform one of the following act
 - Ability to upload datasets to Rucio
 - More color and proper logging!
 - Download the logs for jobs failed in given task
-
-
-## Getting the Package
-
-The tool is temporarily available on `TestPyPI` and can be downloaded with
-
-```
-pip install -i https://test.pypi.org/simple/ --no-deps pandastic
-```
-
-**Note:: you must be able to generate a VOMS-proxy to manipulate datasets with ATLAS. On `lxplus`, you will be prompted for your Grid certificate passphrase. On a local machine, you need to install VOMS**
 
 ## Usage
 
