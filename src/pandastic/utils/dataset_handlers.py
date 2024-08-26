@@ -16,8 +16,8 @@ pbook = PBookCore.PBookCore()
 from rucio import client as rucio_client
 import rucio
 # Pandastic
-from utils.tools import ( draw_progress_bar, get_lines_from_files )
-from utils.common import ( has_replica_on_rse, has_rule_on_rse, has_rulehist_on_rse,
+from pandastic.utils.tools import ( draw_progress_bar, get_lines_from_files )
+from pandastic.utils.common import ( has_replica_on_rse, has_rule_on_rse, has_rulehist_on_rse,
                      RulesAndReplicasReq)
 
 class DatasetHandler(object):
@@ -262,7 +262,8 @@ class PandaDatasetHandler(DatasetHandler):
         print(f'PanDA days to consider: {self.days}')
         print(f'PanDA dataset type to consider: {self.type}')
         print(f'PanDA dataset DID regex to consider: {self.did}')
-        print(f'Looking for production datasets (assuming scope is dataXX_xxTeV or mcXX_xxTeV)')
+        if self.production:
+            print(f'Looking for production datasets (assuming scope is dataXX_xxTeV or mcXX_xxTeV)')
         print(f'===================================')
 
     def GetDatasetsFromTasks(self, tasks):
@@ -311,8 +312,6 @@ class PandaDatasetHandler(DatasetHandler):
 
             # =========  Progress Bar =========
             draw_progress_bar(len(tasks), i, f'Progress for collecting dids from tasks')
-
-            print(task)
             # Get the name of the task
             taskname = task.get("taskname")
             # Skip the task if it doesn't match the regex
